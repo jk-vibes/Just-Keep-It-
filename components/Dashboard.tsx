@@ -15,7 +15,9 @@ import {
   Percent, AlertTriangle, Sparkles,
   ArrowUpDown,
   History,
-  TrendingDown
+  TrendingDown,
+  UserCircle2,
+  X
 } from 'lucide-react';
 import { triggerHaptic } from '../utils/haptics';
 
@@ -313,7 +315,6 @@ const Dashboard: React.FC<DashboardProps> = ({
            </div>
         </section>
 
-        {/* UPDATED: CATEGORY COMPARISON SECTION (REPLACED INFLOW VS OUTFLOW) */}
         <section className={`bg-brand-surface ${isCompact ? 'p-3 rounded-2xl' : 'p-5 rounded-[28px]'} border border-brand-border shadow-sm`}>
            <div className={`flex items-center justify-between ${isCompact ? 'mb-3' : 'mb-5'}`}>
               <div className="flex items-center gap-1.5">

@@ -65,7 +65,7 @@ const SwipeableItem: React.FC<{
   isSelectionMode: boolean;
   isSelected: boolean;
   onToggleSelect: (id: string) => void;
-  aiSuggestion?: { category: Category; subCategory: string; merchant: string; potentialAvoid?: boolean };
+  aiSuggestion?: { category: Category; mainCategory: string; subCategory: string; merchant: string; potentialAvoid?: boolean };
   isDuplicate?: boolean;
   density: string;
   pendingBills: Bill[];
@@ -115,6 +115,7 @@ const SwipeableItem: React.FC<{
       if (result) {
         setLocalAiSuggestion({
           category: result.suggestedCategory,
+          mainCategory: result.suggestedMainCategory,
           subCategory: result.suggestedSubCategory,
           merchant: item.merchant,
           potentialAvoid: result.potentialAvoid
@@ -128,6 +129,21 @@ const SwipeableItem: React.FC<{
   };
 
   const activeAiSuggestion = localAiSuggestion || initialAiSuggestion;
+
+  const handleApplyAiSuggestion = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    triggerHaptic(40);
+    if (activeAiSuggestion && onUpdateExpense) {
+      onUpdateExpense(item.id, {
+        isConfirmed: true,
+        category: activeAiSuggestion.category,
+        mainCategory: activeAiSuggestion.mainCategory,
+        subCategory: activeAiSuggestion.subCategory,
+        isAIUpgraded: true
+      });
+      setShowFloatingPopup(false);
+    }
+  };
 
   const handleApplyMatchedBill = (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -243,6 +259,22 @@ const SwipeableItem: React.FC<{
             {recordType === 'income' ? '+' : '-'}{currencySymbol}{Math.round(amount).toLocaleString()}
           </p>
         </div>
+        
+        {/* Floating suggestion bubble */}
+        {showFloatingPopup && activeAiSuggestion && (
+           <div className="mt-2 p-2 bg-indigo-600 rounded-xl shadow-xl animate-kick border border-indigo-400/30 flex items-center justify-between">
+              <div className="flex flex-col">
+                 <p className="text-[7px] font-black text-indigo-100 uppercase tracking-widest mb-0.5">Neural Scan Suggestion</p>
+                 <p className="text-[9px] font-black text-white uppercase">{activeAiSuggestion.mainCategory} • {activeAiSuggestion.subCategory}</p>
+              </div>
+              <button 
+                onClick={handleApplyAiSuggestion}
+                className="bg-white text-indigo-600 px-3 py-1.5 rounded-lg text-[8px] font-black uppercase tracking-tight shadow-sm active:scale-95 transition-all"
+              >
+                Apply & Rule
+              </button>
+           </div>
+        )}
       </div>
     </div>
   );

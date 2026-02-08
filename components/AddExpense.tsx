@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect, useRef } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { Category, Expense, UserSettings, WealthItem, PaymentMethod, Frequency } from '../types';
 import { getCurrencySymbol } from '../constants';
 import { Check, X, ChevronDown, ShoppingBag, Trash2, Sparkles, Loader2 } from 'lucide-react';
@@ -24,29 +24,44 @@ const AddExpense: React.FC<AddExpenseProps> = ({ settings, wealthItems, onAdd, o
   const [date, setDate] = useState(initialData?.date || new Date().toISOString().split('T')[0]);
   const [merchant, setMerchant] = useState(initialData?.merchant || '');
   const [note, setNote] = useState(initialData?.note || '');
-  const [bucket, setBucket] = useState<Category>(initialData?.category || 'Needs');
   const [mainCategory, setMainCategory] = useState(initialData?.mainCategory || '');
   const [subCategory, setSubCategory] = useState(initialData?.subCategory || 'General');
   const [sourceAccountId, setSourceAccountId] = useState(initialData?.sourceAccountId || '');
   const [frequency, setFrequency] = useState<Frequency>('None');
   const [isGeneratingNote, setIsGeneratingNote] = useState(false);
 
-  const categoryTree = settings.customCategories || {} as any;
-  const categoriesInBucket = useMemo(() => Object.keys(categoryTree[bucket] || {}), [bucket, categoryTree]);
-  const subCategoriesInCat = useMemo(() => categoryTree[bucket]?.[mainCategory] || ['General'], [bucket, mainCategory, categoryTree]);
+  // Derive master list of categories from all buckets
+  const allCategories = useMemo(() => {
+    const list: { name: string; bucket: Category; subs: string[] }[] = [];
+    if (!settings.customCategories) return list;
+    Object.entries(settings.customCategories).forEach(([bucket, cats]) => {
+      Object.entries(cats).forEach(([catName, subs]) => {
+        list.push({ name: catName, bucket: bucket as Category, subs });
+      });
+    });
+    return list.sort((a, b) => a.name.localeCompare(b.name));
+  }, [settings.customCategories]);
 
-  // Sync mainCategory and subCategory when bucket changes
+  const selectedCategoryData = useMemo(() => {
+    return allCategories.find(c => c.name === mainCategory) || allCategories[0];
+  }, [allCategories, mainCategory]);
+
+  const subCategoriesInCat = useMemo(() => {
+    return selectedCategoryData?.subs || ['General'];
+  }, [selectedCategoryData]);
+
+  // Initial Sync
   useEffect(() => {
-    if (!mainCategory || !categoriesInBucket.includes(mainCategory)) {
-        setMainCategory(categoriesInBucket[0] || '');
+    if (!mainCategory && allCategories.length > 0) {
+      setMainCategory(allCategories[0].name);
     }
-  }, [bucket, categoriesInBucket]);
+  }, [allCategories, mainCategory]);
 
   useEffect(() => {
     if (!subCategory || !subCategoriesInCat.includes(subCategory)) {
         setSubCategory(subCategoriesInCat[0] || 'General');
     }
-  }, [mainCategory, subCategoriesInCat]);
+  }, [mainCategory, subCategoriesInCat, subCategory]);
 
   const handleGenerateNote = async () => {
     if (isGeneratingNote) return;
@@ -55,12 +70,11 @@ const AddExpense: React.FC<AddExpenseProps> = ({ settings, wealthItems, onAdd, o
     try {
       const gNote = await generateQuickNote(
         merchant.trim() || 'General Merchant', 
-        mainCategory || bucket, 
+        mainCategory, 
         subCategory
       );
       setNote(gNote);
     } catch (e) {
-      // Fallback if AI fails
       setNote(`${merchant.trim() || 'General'}: ${subCategory}`);
     } finally {
       setIsGeneratingNote(false);
@@ -70,10 +84,11 @@ const AddExpense: React.FC<AddExpenseProps> = ({ settings, wealthItems, onAdd, o
   const handleSubmit = () => {
     if (!amount) return;
     triggerHaptic(20);
+    
     const payload = {
       amount: Math.round(parseFloat(amount)),
       date,
-      category: bucket,
+      category: selectedCategoryData?.bucket || 'Needs',
       mainCategory,
       subCategory,
       merchant: merchant.trim() || 'General',
@@ -137,30 +152,12 @@ const AddExpense: React.FC<AddExpenseProps> = ({ settings, wealthItems, onAdd, o
             </div>
           </div>
 
-          <div className="grid grid-cols-3 gap-2">
-            <div className="space-y-0.5">
-              <span className={labelClass}>Bucket</span>
-              <div className="relative">
-                <select 
-                  value={bucket} 
-                  onChange={(e) => { 
-                    const b = e.target.value as Category;
-                    setBucket(b); 
-                  }} 
-                  className={menuButtonClass}
-                >
-                  {['Needs', 'Wants', 'Savings', 'Avoids'].map(b => (
-                    <option key={b} value={b}>{b}</option>
-                  ))}
-                </select>
-                <ChevronDown size={10} className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
-              </div>
-            </div>
+          <div className="grid grid-cols-2 gap-2">
             <div className="space-y-0.5">
               <span className={labelClass}>Category</span>
               <div className="relative">
                 <select value={mainCategory} onChange={(e) => setMainCategory(e.target.value)} className={menuButtonClass}>
-                  {categoriesInBucket.map(cat => <option key={cat} value={cat}>{cat}</option>)}
+                  {allCategories.map(cat => <option key={cat.name} value={cat.name}>{cat.name}</option>)}
                 </select>
                 <ChevronDown size={10} className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
               </div>

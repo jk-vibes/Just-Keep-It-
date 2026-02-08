@@ -11,7 +11,7 @@ import {
   Target, Info, Zap, AlertCircle,
   LayoutGrid, List, BarChart as BarChartIcon,
   ArrowUpRight, ArrowDownRight, Layers,
-  ReceiptText, Sparkles, Plus
+  ReceiptText, Sparkles, Plus, Tag
 } from 'lucide-react';
 import { 
   AreaChart, Area, 
@@ -33,6 +33,7 @@ interface AccountsProps {
   onAddWealth: (item: Omit<WealthItem, 'id'>) => void;
   onEditAccount: (account: WealthItem) => void;
   onAddAccountClick: () => void;
+  onOpenCategoryManager: () => void;
   onAddBillClick?: (extra?: any) => void;
   onAddIncomeClick?: () => void;
   onAddTransferClick?: () => void;
@@ -132,7 +133,7 @@ const CustomLabel = (props: any) => {
 };
 
 const Accounts: React.FC<AccountsProps> = ({
-  wealthItems, settings, bills, onEditAccount, onAddTransferClick, onAddAccountClick
+  wealthItems, settings, bills, onEditAccount, onAddTransferClick, onAddAccountClick, onOpenCategoryManager
 }) => {
   const [activeView, setActiveView] = useState<'dashboard' | 'registry'>('dashboard');
   const currencySymbol = getCurrencySymbol(settings.currency);
@@ -217,6 +218,13 @@ const Accounts: React.FC<AccountsProps> = ({
             </p>
           </div>
           <div className="flex items-center gap-1.5">
+            <button 
+              onClick={() => { triggerHaptic(); onOpenCategoryManager(); }} 
+              className="p-2 bg-white/10 rounded-xl text-brand-headerText active:scale-95 transition-all"
+              title="Category Master"
+            >
+              <Tag size={16} />
+            </button>
             <button 
               onClick={() => { triggerHaptic(); setActiveView(activeView === 'dashboard' ? 'registry' : 'dashboard'); }} 
               className={`p-2 rounded-xl transition-all active:scale-95 ${activeView === 'registry' ? 'bg-white/20 text-brand-headerText' : 'bg-white/10 text-brand-headerText'}`}

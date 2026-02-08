@@ -7,6 +7,8 @@ interface NavbarProps {
   currentView: View;
   remainingPercentage: number;
   netWorth: number;
+  totalAssets?: number;
+  totalLiabilities?: number;
   categoryPercentages: {
     Needs: number;
     Wants: number;
@@ -17,11 +19,17 @@ interface NavbarProps {
   onViewChange: (view: View) => void;
 }
 
-const Navbar: React.FC<NavbarProps> = ({ currentView, remainingPercentage, netWorth, categoryPercentages, onViewChange }) => {
+const Navbar: React.FC<NavbarProps> = ({ 
+  currentView, 
+  remainingPercentage, 
+  netWorth, 
+  totalAssets = 0,
+  totalLiabilities = 0,
+  categoryPercentages, 
+  onViewChange 
+}) => {
   const spentPercentage = Math.max(0, Math.min(100, 100 - remainingPercentage));
-  const savingsRate = Math.max(0, Math.min(100, remainingPercentage));
-  const isNegativePortfolio = netWorth < 0;
-
+  
   const handleMainClick = () => {
     triggerHaptic(20);
     if (currentView === 'Dashboard') {
@@ -34,12 +42,10 @@ const Navbar: React.FC<NavbarProps> = ({ currentView, remainingPercentage, netWo
   const handleAddClick = (e: React.MouseEvent) => {
     e.stopPropagation();
     triggerHaptic(25);
-    // Send generic 'Add' signal to let App.tsx decide the context
     onViewChange('Add');
   };
 
   const renderIcon = () => {
-    // Single High-Visibility Badge for context-aware Adding
     const ActionBadge = () => (
       <button 
         onClick={handleAddClick}
@@ -49,7 +55,6 @@ const Navbar: React.FC<NavbarProps> = ({ currentView, remainingPercentage, netWo
       </button>
     );
 
-    // Branded Briefcase
     const JKBriefcase = ({ fillId, children }: { fillId: string, children?: React.ReactNode }) => (
       <div className="relative animate-kick group">
         <svg 
@@ -144,14 +149,28 @@ const Navbar: React.FC<NavbarProps> = ({ currentView, remainingPercentage, netWo
     }
 
     if (currentView === 'Accounts') {
-      const statusColor = isNegativePortfolio ? "#ef4444" : "#22c55e";
+      const isPositive = totalAssets > totalLiabilities;
+      const statusColor = isPositive ? "#22c55e" : "#ef4444";
+      
+      // Calculate fill based on asset/liability ratio
+      let accountFill = 0;
+      if (isPositive) {
+        // Assets are more: Fill represents the "equity" part of assets
+        accountFill = totalAssets > 0 ? ((totalAssets - totalLiabilities) / totalAssets) * 100 : 0;
+      } else {
+        // Liabilities are more: Fill represents how much of the debt is covered by assets
+        accountFill = totalLiabilities > 0 ? (totalAssets / totalLiabilities) * 100 : 0;
+      }
+      
+      accountFill = Math.min(100, Math.max(5, accountFill)); // Ensure at least a sliver is visible
+
       return (
         <div className="relative">
           <svg width="0" height="0" className="absolute">
             <defs>
               <linearGradient id="accountBrandedFill" x1="0" y1="1" x2="0" y2="0">
-                <stop offset={`${savingsRate}%`} stopColor={statusColor} />
-                <stop offset={`${savingsRate}%`} stopColor="#cbd5e1" stopOpacity="0.2" />
+                <stop offset={`${accountFill}%`} stopColor={statusColor} />
+                <stop offset={`${accountFill}%`} stopColor="#cbd5e1" stopOpacity="0.2" />
               </linearGradient>
             </defs>
           </svg>

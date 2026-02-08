@@ -147,6 +147,7 @@ export async function auditTransaction(expense: Expense, currency: string) {
     Return JSON: {
       isCorrect: boolean,
       suggestedCategory: string,
+      suggestedMainCategory: string,
       suggestedSubCategory: string,
       insight: string (max 15 words),
       isAnomaly: boolean,
@@ -165,12 +166,13 @@ export async function auditTransaction(expense: Expense, currency: string) {
           properties: {
             isCorrect: { type: Type.BOOLEAN },
             suggestedCategory: { type: Type.STRING },
+            suggestedMainCategory: { type: Type.STRING },
             suggestedSubCategory: { type: Type.STRING },
             insight: { type: Type.STRING },
             isAnomaly: { type: Type.BOOLEAN },
             potentialAvoid: { type: Type.BOOLEAN }
           },
-          required: ["isCorrect", "suggestedCategory", "suggestedSubCategory", "insight", "isAnomaly", "potentialAvoid"]
+          required: ["isCorrect", "suggestedCategory", "suggestedMainCategory", "suggestedSubCategory", "insight", "isAnomaly", "potentialAvoid"]
         }
       }
     }));
@@ -347,6 +349,43 @@ export async function getDecisionAdvice(
       waitTime: "T+2 Days",
       impactPercentage: 0
     };
+  }
+}
+
+export async function getFatherlyAdvice(
+  expenses: Expense[],
+  wealthItems: WealthItem[],
+  settings: UserSettings
+): Promise<string> {
+  const assets = wealthItems.filter(i => i.type === 'Investment').reduce((sum, i) => sum + i.value, 0);
+  const liabilities = wealthItems.filter(i => i.type === 'Liability').reduce((sum, i) => sum + i.value, 0);
+  const m = new Date().getMonth();
+  const y = new Date().getFullYear();
+  const recentSpend = expenses
+    .filter(e => new Date(e.date).getMonth() === m && new Date(e.date).getFullYear() === y)
+    .reduce((sum, e) => sum + e.amount, 0);
+
+  const prompt = `
+    You are a wise, financially savvy father talking to your son about his money. 
+    Current State:
+    - Assets: ${Math.round(assets)} ${settings.currency}
+    - Debt: ${Math.round(liabilities)} ${settings.currency}
+    - Recent Spend this month: ${Math.round(recentSpend)} ${settings.currency}
+    - Monthly Income: ${Math.round(settings.monthlyIncome)} ${settings.currency}
+
+    Give him one piece of actionable, firm, but loving advice. Use a dad-like tone (e.g., 'Listen son...', 'Back in my day...', 'Money doesn't grow on trees', 'Fix the leak before the ship sinks'). 
+    If debt is high relative to assets, be firmer. If savings are growing, be proud but cautious.
+    Keep it under 30 words. Return ONLY the advice text.
+  `;
+
+  try {
+    const response = await withRetry<GenerateContentResponse>(() => ai.models.generateContent({
+      model: 'gemini-3-flash-preview',
+      contents: prompt,
+    }));
+    return response.text?.trim() || "Watch your step with those expenses, son. A small leak can sink a big ship.";
+  } catch (error) {
+    return "Listen son, focus on the foundation. Wealth isn't about what you spend, it's about what you keep.";
   }
 }
 

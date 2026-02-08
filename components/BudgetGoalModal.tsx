@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { BudgetItem, Category, UserSettings, Expense } from '../types';
 import { getCurrencySymbol, CATEGORY_COLORS } from '../constants';
 import { Check, X, Target, Trash2, ChevronDown } from 'lucide-react';
@@ -23,21 +23,37 @@ const BudgetGoalModal: React.FC<BudgetGoalModalProps> = ({
 
   const [name, setName] = useState(initialData?.name || '');
   const [amount, setAmount] = useState(initialData?.amount?.toString() || '');
-  const [bucket, setBucket] = useState<Category>(initialData?.bucket || 'Needs');
   const [mainCategory, setMainCategory] = useState(initialData?.category || '');
   const [subCategory, setSubCategory] = useState(initialData?.subCategory || 'General');
 
-  const categoryTree = settings.customCategories || {} as any;
-  const categoriesInBucket = useMemo(() => Object.keys(categoryTree[bucket] || {}), [bucket, categoryTree]);
-  const subCategoriesInCat = useMemo(() => categoryTree[bucket]?.[mainCategory] || ['General'], [bucket, mainCategory, categoryTree]);
+  // Derive master list of categories from all buckets
+  const allCategories = useMemo(() => {
+    const list: { name: string; bucket: Category; subs: string[] }[] = [];
+    if (!settings.customCategories) return list;
+    Object.entries(settings.customCategories).forEach(([bucket, cats]) => {
+      Object.entries(cats).forEach(([catName, subs]) => {
+        list.push({ name: catName, bucket: bucket as Category, subs });
+      });
+    });
+    return list.sort((a, b) => a.name.localeCompare(b.name));
+  }, [settings.customCategories]);
 
-  useMemo(() => {
-    if (!mainCategory || !categoriesInBucket.includes(mainCategory)) {
-        setMainCategory(categoriesInBucket[0] || '');
+  const selectedCategoryData = useMemo(() => {
+    return allCategories.find(c => c.name === mainCategory) || allCategories[0];
+  }, [allCategories, mainCategory]);
+
+  const subCategoriesInCat = useMemo(() => {
+    return selectedCategoryData?.subs || ['General'];
+  }, [selectedCategoryData]);
+
+  // Initial Sync
+  useEffect(() => {
+    if (!mainCategory && allCategories.length > 0) {
+      setMainCategory(allCategories[0].name);
     }
-  }, [bucket, categoriesInBucket, mainCategory]);
+  }, [allCategories, mainCategory]);
 
-  useMemo(() => {
+  useEffect(() => {
     if (!subCategory || !subCategoriesInCat.includes(subCategory)) {
         setSubCategory(subCategoriesInCat[0] || 'General');
     }
@@ -46,6 +62,8 @@ const BudgetGoalModal: React.FC<BudgetGoalModalProps> = ({
   const spentContext = useMemo(() => {
     const m = viewDate.getMonth();
     const y = viewDate.getFullYear();
+    const bucket = selectedCategoryData?.bucket || 'Needs';
+    
     const currentMonthExps = expenses.filter(e => {
       const d = new Date(e.date);
       return d.getMonth() === m && d.getFullYear() === y;
@@ -66,7 +84,7 @@ const BudgetGoalModal: React.FC<BudgetGoalModalProps> = ({
     }).reduce((sum, e) => sum + e.amount, 0);
     
     return { subCategoryTotal };
-  }, [expenses, bucket, mainCategory, subCategory, name, viewDate]);
+  }, [expenses, selectedCategoryData, mainCategory, subCategory, name, viewDate]);
 
   const handleSubmit = () => {
     if (!name || !amount) return;
@@ -74,7 +92,7 @@ const BudgetGoalModal: React.FC<BudgetGoalModalProps> = ({
     const payload = {
       name: name.trim(),
       amount: Math.round(parseFloat(amount) || 0),
-      bucket,
+      bucket: selectedCategoryData?.bucket || 'Needs',
       category: mainCategory,
       subCategory
     };
@@ -118,17 +136,17 @@ const BudgetGoalModal: React.FC<BudgetGoalModalProps> = ({
                 className="w-full pl-6 text-3xl font-black border-none outline-none focus:ring-0 bg-transparent text-brand-text tracking-tighter text-center"
               />
             </div>
-            <p className={labelClass + " mt-1"}>Monthly Budget</p>
+            <p className={labelClass + " mt-1"}>Target Limit</p>
           </div>
 
           <div className="bg-brand-accent/50 p-3 rounded-xl border border-brand-border">
             <div className="flex justify-between items-center">
-               <p className="text-[7px] font-black text-slate-500 uppercase tracking-widest leading-none">Spent ({viewDate.toLocaleDateString(undefined, { month: 'short' }).toUpperCase()})</p>
+               <p className="text-[7px] font-black text-slate-500 uppercase tracking-widest leading-none">Status ({viewDate.toLocaleDateString(undefined, { month: 'short' }).toUpperCase()})</p>
                <div className="text-right leading-none">
                   <span className="text-[10px] font-black text-brand-text">{currencySymbol}{spentContext.subCategoryTotal.toLocaleString()}</span>
                   {parseFloat(amount) > 0 && (
                     <span className={`text-[7px] font-black uppercase ml-2 ${utilizationPercentage > 100 ? 'text-rose-500' : 'text-slate-500'}`}>
-                      {Math.round(utilizationPercentage)}% used
+                      {Math.round(utilizationPercentage)}% load
                     </span>
                   )}
                </div>
@@ -137,31 +155,31 @@ const BudgetGoalModal: React.FC<BudgetGoalModalProps> = ({
 
           <div className="space-y-0.5">
             <span className={labelClass}>Goal Name</span>
-            <input type="text" value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g. Housing, Shopping" className={selectClasses} />
+            <input type="text" value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g. Housing, Dining" className={selectClasses} />
           </div>
 
-          <div className="grid grid-cols-3 gap-2">
-            <div className="space-y-0.5">
-              <span className={labelClass}>Bucket</span>
-              <select value={bucket} onChange={(e) => setBucket(e.target.value as Category)} className={selectClasses}>
-                {['Needs', 'Wants', 'Savings'].map(b => <option key={b} value={b}>{b}</option>)}
-              </select>
-            </div>
+          <div className="grid grid-cols-2 gap-2">
             <div className="space-y-0.5">
               <span className={labelClass}>Category</span>
-              <select value={mainCategory} onChange={(e) => setMainCategory(e.target.value)} className={selectClasses}>
-                {categoriesInBucket.map(cat => (
-                  <option key={cat} value={cat}>{cat}</option>
-                ))}
-              </select>
+              <div className="relative">
+                <select value={mainCategory} onChange={(e) => setMainCategory(e.target.value)} className={selectClasses}>
+                  {allCategories.map(cat => (
+                    <option key={cat.name} value={cat.name}>{cat.name}</option>
+                  ))}
+                </select>
+                <ChevronDown size={10} className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
+              </div>
             </div>
             <div className="space-y-0.5">
               <span className={labelClass}>Sub-Category</span>
-              <select value={subCategory} onChange={(e) => setSubCategory(e.target.value)} className={selectClasses}>
-                {subCategoriesInCat.map(sub => (
-                  <option key={sub} value={sub}>{sub}</option>
-                ))}
-              </select>
+              <div className="relative">
+                <select value={subCategory} onChange={(e) => setSubCategory(e.target.value)} className={selectClasses}>
+                  {subCategoriesInCat.map(sub => (
+                    <option key={sub} value={sub}>{sub}</option>
+                  ))}
+                </select>
+                <ChevronDown size={10} className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
+              </div>
             </div>
           </div>
         </div>
@@ -178,7 +196,7 @@ const BudgetGoalModal: React.FC<BudgetGoalModalProps> = ({
               disabled={!amount || !name}
               className="flex-1 py-3 bg-brand-primary text-brand-headerText font-black rounded-xl shadow-lg active:scale-[0.98] transition-all flex items-center justify-center gap-2 uppercase tracking-[0.1em] text-[10px] disabled:opacity-50"
             >
-              <Check size={16} strokeWidth={4} /> Save Goal
+              <Check size={16} strokeWidth={4} /> Register Goal
             </button>
           </div>
         </div>
