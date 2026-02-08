@@ -1,7 +1,7 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo, useRef, useEffect } from 'react';
 import { WealthItem, WealthType, WealthCategory, UserSettings } from '../types';
 import { getCurrencySymbol } from '../constants';
-import { Check, X, ChevronDown, Landmark, Trash2 } from 'lucide-react';
+import { Check, X, ChevronDown, Landmark, Trash2, Search } from 'lucide-react';
 import { triggerHaptic } from '../utils/haptics';
 
 interface AddAccountProps {
@@ -13,13 +13,75 @@ interface AddAccountProps {
   initialData?: WealthItem | null;
 }
 
-const ASSET_CATEGORIES: WealthCategory[] = ['Savings', 'Pension', 'Gold', 'Investment', 'Cash', 'Other'];
-const LIABILITY_CATEGORIES: WealthCategory[] = ['Credit Card', 'Personal Loan', 'Home Loan', 'Overdraft', 'Gold Loan', 'Other'];
+const ASSET_CATEGORIES = ['Savings', 'Pension', 'Gold', 'Investment', 'Cash', 'Other'];
+const LIABILITY_CATEGORIES = ['Credit Card', 'Personal Loan', 'Home Loan', 'Overdraft', 'Gold Loan', 'Other'];
+
+const Typeahead: React.FC<{
+  label: string;
+  value: string;
+  onChange: (val: string) => void;
+  suggestions: string[];
+  placeholder?: string;
+}> = ({ label, value, onChange, suggestions, placeholder }) => {
+  const [isOpen, setIsOpen] = useState(false);
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  const filtered = useMemo(() => {
+    const q = value.toLowerCase();
+    return suggestions.filter(s => s.toLowerCase().includes(q));
+  }, [suggestions, value]);
+
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (containerRef.current && !containerRef.current.contains(event.target as Node)) {
+        setIsOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  const labelClass = "text-[7px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest ml-1 mb-1 block";
+  const inputClass = "w-full bg-brand-accent p-2 rounded-xl text-[10px] font-black outline-none border border-brand-border text-brand-text appearance-none transition-all focus:border-brand-primary/30 truncate";
+
+  return (
+    <div className="relative" ref={containerRef}>
+      <span className={labelClass}>{label}</span>
+      <div className="relative group">
+        <input
+          type="text"
+          value={value}
+          onChange={(e) => { onChange(e.target.value); setIsOpen(true); }}
+          onFocus={() => setIsOpen(true)}
+          placeholder={placeholder}
+          className={inputClass}
+        />
+        <div className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-500 pointer-events-none group-focus-within:text-brand-primary transition-colors">
+          <Search size={10} />
+        </div>
+      </div>
+      
+      {isOpen && filtered.length > 0 && (
+        <div className="absolute z-[300] left-0 right-0 mt-1 bg-brand-surface border border-brand-border rounded-xl shadow-2xl overflow-hidden max-h-40 overflow-y-auto no-scrollbar animate-slide-up">
+          {filtered.map((s) => (
+            <button
+              key={s}
+              onClick={() => { onChange(s); setIsOpen(false); triggerHaptic(5); }}
+              className={`w-full px-3 py-2 text-left text-[10px] font-bold transition-colors border-b border-brand-border last:border-0 ${value === s ? 'bg-brand-primary/10 text-brand-primary' : 'text-brand-text hover:bg-brand-accent'}`}
+            >
+              {s}
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+};
 
 const AddAccount: React.FC<AddAccountProps> = ({ settings, onSave, onUpdate, onDelete, onCancel, initialData }) => {
   const isEditing = !!(initialData && initialData.id);
   const [type, setType] = useState<WealthType>(initialData?.type || 'Investment');
-  const [category, setCategory] = useState<WealthCategory>(initialData?.category || 'Savings');
+  const [categoryText, setCategoryText] = useState<string>(initialData?.category || '');
   const [groupName, setGroupName] = useState(initialData?.group || '');
   const [name, setName] = useState(initialData?.name || '');
   const [alias, setAlias] = useState(initialData?.alias || '');
@@ -29,18 +91,24 @@ const AddAccount: React.FC<AddAccountProps> = ({ settings, onSave, onUpdate, onD
   const currencySymbol = getCurrencySymbol(settings.currency);
 
   const handleSubmit = () => {
-    if (!name) return;
+    if (!name || !categoryText) return;
+
+    const availableSuggestions = type === 'Investment' ? ASSET_CATEGORIES : LIABILITY_CATEGORIES;
+    if (!availableSuggestions.includes(categoryText)) {
+      if (!window.confirm(`Add "${categoryText}" as a new account classification?`)) return;
+    }
+
     triggerHaptic(20);
     const payload: Omit<WealthItem, 'id'> = {
       type, 
-      category, 
-      group: groupName.trim() || category, 
+      category: categoryText.trim() as WealthCategory, 
+      group: groupName.trim() || categoryText.trim(), 
       name: name.trim(), 
       alias: (alias || name).trim(),
       value: Math.round(parseFloat(value) || 0),
       date: new Date().toISOString()
     };
-    if (category === 'Credit Card') payload.limit = Math.round(parseFloat(limit) || 0);
+    if (categoryText === 'Credit Card') payload.limit = Math.round(parseFloat(limit) || 0);
 
     if (isEditing && onUpdate && initialData?.id) onUpdate(initialData.id, payload);
     else onSave(payload);
@@ -83,19 +151,18 @@ const AddAccount: React.FC<AddAccountProps> = ({ settings, onSave, onUpdate, onD
           <div className="grid grid-cols-2 gap-3">
              <div className="space-y-0.5">
                 <span className={labelClass}>Account Type</span>
-                <select value={type} onChange={(e) => { const nt = e.target.value as WealthType; setType(nt); setCategory(nt === 'Investment' ? 'Savings' : 'Credit Card'); }} className={selectClasses}>
+                <select value={type} onChange={(e) => { const nt = e.target.value as WealthType; setType(nt); setCategoryText(nt === 'Investment' ? '' : ''); }} className={selectClasses}>
                     <option value="Investment">Asset</option>
                     <option value="Liability">Liability</option>
                 </select>
              </div>
-             <div className="space-y-0.5">
-                <span className={labelClass}>Classification</span>
-                <select value={category} onChange={(e) => setCategory(e.target.value as WealthCategory)} className={selectClasses}>
-                    {(type === 'Investment' ? ASSET_CATEGORIES : LIABILITY_CATEGORIES).map(cat => (
-                      <option key={cat} value={cat}>{cat}</option>
-                    ))}
-                </select>
-             </div>
+             <Typeahead
+                label="Classification"
+                value={categoryText}
+                onChange={setCategoryText}
+                suggestions={type === 'Investment' ? ASSET_CATEGORIES : LIABILITY_CATEGORIES}
+                placeholder="e.g. Savings"
+             />
           </div>
 
           <div className="space-y-0.5">
@@ -103,7 +170,7 @@ const AddAccount: React.FC<AddAccountProps> = ({ settings, onSave, onUpdate, onD
             <input type="text" value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g. AMEX Platinum" className={selectClasses} />
           </div>
 
-          {category === 'Credit Card' && (
+          {categoryText === 'Credit Card' && (
             <div className="space-y-0.5 animate-kick">
               <span className={labelClass}>Credit Limit</span>
               <input type="number" value={limit} onChange={(e) => setLimit(e.target.value)} placeholder="0" className={selectClasses} />
@@ -118,7 +185,7 @@ const AddAccount: React.FC<AddAccountProps> = ({ settings, onSave, onUpdate, onD
                   <Trash2 size={18} />
                </button>
              )}
-             <button onClick={handleSubmit} disabled={!name} className="flex-1 py-3 bg-brand-primary text-brand-headerText font-black rounded-xl shadow-lg active:scale-[0.98] transition-all flex items-center justify-center gap-2 uppercase tracking-[0.1em] text-[10px]">
+             <button onClick={handleSubmit} disabled={!name || !categoryText} className="flex-1 py-3 bg-brand-primary text-brand-headerText font-black rounded-xl shadow-lg active:scale-[0.98] transition-all flex items-center justify-center gap-2 uppercase tracking-[0.1em] text-[10px] disabled:opacity-50">
                <Check size={16} strokeWidth={4} /> Save Account
              </button>
           </div>

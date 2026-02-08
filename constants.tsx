@@ -14,8 +14,8 @@ export const DEFAULT_CATEGORIES: Record<Category, Record<string, string[]>> = {
     'Housing': ['Rent/Mortgage', 'Utilities', 'Maintenance', 'Municipal Tax'],
     'Household': ['Groceries', 'Supplies', 'Staff Salary'],
     'Logistics': ['Fuel', 'Transport', 'Parking'],
-    'Comm': ['Internet', 'Mobile/Phone'],
-    'Vital': ['Health/Insurance', 'Education'],
+    'Communication': ['Internet', 'Mobile/Phone'],
+    'Essentials': ['Health/Insurance', 'Education'],
     'Obligations': ['Debt Interest', 'Loan EMI', 'Credit Card Due']
   },
   Wants: {
@@ -24,7 +24,7 @@ export const DEFAULT_CATEGORIES: Record<Category, Record<string, string[]>> = {
     'Personal': ['Coffee', 'Apparel', 'Beauty/Grooming', 'Tech Gadgets']
   },
   Savings: {
-    'Invest': ['SIP/Mutual Fund', 'Stocks', 'Crypto', 'Gold'],
+    'Investment': ['SIP/Mutual Fund', 'Stocks', 'Crypto', 'Gold'],
     'Reserve': ['Emergency Fund', 'Fixed Deposit', 'Cash Vault'],
     'Future': ['Real Estate', 'Retirement', 'Pension/NPS']
   },

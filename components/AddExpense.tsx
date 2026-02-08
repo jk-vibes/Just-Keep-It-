@@ -1,7 +1,7 @@
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { Category, Expense, UserSettings, WealthItem, PaymentMethod, Frequency } from '../types';
 import { getCurrencySymbol } from '../constants';
-import { Check, X, ChevronDown, ShoppingBag, Trash2, Sparkles, Loader2 } from 'lucide-react';
+import { Check, X, ShoppingBag, Trash2, Sparkles, Loader2, ChevronDown, Search } from 'lucide-react';
 import { triggerHaptic } from '../utils/haptics';
 import { generateQuickNote } from '../services/geminiService';
 
@@ -15,6 +15,70 @@ interface AddExpenseProps {
   initialData?: Expense | null;
 }
 
+const Typeahead: React.FC<{
+  label: string;
+  value: string;
+  onChange: (val: string) => void;
+  suggestions: string[];
+  placeholder?: string;
+  icon?: React.ReactNode;
+}> = ({ label, value, onChange, suggestions, placeholder, icon }) => {
+  const [isOpen, setIsOpen] = useState(false);
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  const filtered = useMemo(() => {
+    const q = value.toLowerCase();
+    // Allow showing same-prefix suggestions even if the exact match exists to allow easy changing
+    return suggestions.filter(s => s.toLowerCase().includes(q));
+  }, [suggestions, value]);
+
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (containerRef.current && !containerRef.current.contains(event.target as Node)) {
+        setIsOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  const labelClass = "text-[7px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest ml-1 mb-1 block";
+  const inputClass = "w-full bg-brand-accent p-2.5 rounded-xl text-[10px] font-black outline-none border border-brand-border text-brand-text transition-all focus:border-brand-primary/30 truncate";
+
+  return (
+    <div className="relative" ref={containerRef}>
+      <span className={labelClass}>{label}</span>
+      <div className="relative group">
+        <input
+          type="text"
+          value={value}
+          onChange={(e) => { onChange(e.target.value); setIsOpen(true); }}
+          onFocus={() => setIsOpen(true)}
+          placeholder={placeholder}
+          className={inputClass}
+        />
+        <div className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-500 pointer-events-none group-focus-within:text-brand-primary transition-colors">
+          {icon || <Search size={10} />}
+        </div>
+      </div>
+      
+      {isOpen && filtered.length > 0 && (
+        <div className="absolute z-[300] left-0 right-0 mt-1 bg-brand-surface border border-brand-border rounded-xl shadow-2xl overflow-hidden max-h-40 overflow-y-auto no-scrollbar animate-slide-up">
+          {filtered.map((s) => (
+            <button
+              key={s}
+              onClick={() => { onChange(s); setIsOpen(false); triggerHaptic(5); }}
+              className={`w-full px-3 py-2 text-left text-[10px] font-bold transition-colors border-b border-brand-border last:border-0 ${value === s ? 'bg-brand-primary/10 text-brand-primary' : 'text-brand-text hover:bg-brand-accent'}`}
+            >
+              {s}
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+};
+
 const AddExpense: React.FC<AddExpenseProps> = ({ settings, wealthItems, onAdd, onUpdate, onDelete, onCancel, initialData }) => {
   const isEditing = !!(initialData && initialData.id);
   const currencySymbol = getCurrencySymbol(settings.currency);
@@ -25,43 +89,36 @@ const AddExpense: React.FC<AddExpenseProps> = ({ settings, wealthItems, onAdd, o
   const [merchant, setMerchant] = useState(initialData?.merchant || '');
   const [note, setNote] = useState(initialData?.note || '');
   const [mainCategory, setMainCategory] = useState(initialData?.mainCategory || '');
-  const [subCategory, setSubCategory] = useState(initialData?.subCategory || 'General');
+  const [subCategory, setSubCategory] = useState(initialData?.subCategory || '');
   const [sourceAccountId, setSourceAccountId] = useState(initialData?.sourceAccountId || '');
   const [frequency, setFrequency] = useState<Frequency>('None');
   const [isGeneratingNote, setIsGeneratingNote] = useState(false);
 
-  // Derive master list of categories from all buckets
-  const allCategories = useMemo(() => {
-    const list: { name: string; bucket: Category; subs: string[] }[] = [];
+  // Bucket detection logic based on typed mainCategory
+  const detectedBucket = useMemo(() => {
+    if (!settings.customCategories) return 'Needs';
+    for (const [bucket, cats] of Object.entries(settings.customCategories)) {
+      if (Object.keys(cats).includes(mainCategory)) return bucket as Category;
+    }
+    return 'Needs';
+  }, [mainCategory, settings.customCategories]);
+
+  const allMainCategories = useMemo(() => {
+    const list: string[] = [];
     if (!settings.customCategories) return list;
-    Object.entries(settings.customCategories).forEach(([bucket, cats]) => {
-      Object.entries(cats).forEach(([catName, subs]) => {
-        list.push({ name: catName, bucket: bucket as Category, subs });
-      });
+    Object.values(settings.customCategories).forEach(cats => {
+      list.push(...Object.keys(cats));
     });
-    return list.sort((a, b) => a.name.localeCompare(b.name));
+    return Array.from(new Set(list)).sort();
   }, [settings.customCategories]);
 
-  const selectedCategoryData = useMemo(() => {
-    return allCategories.find(c => c.name === mainCategory) || allCategories[0];
-  }, [allCategories, mainCategory]);
-
-  const subCategoriesInCat = useMemo(() => {
-    return selectedCategoryData?.subs || ['General'];
-  }, [selectedCategoryData]);
-
-  // Initial Sync
-  useEffect(() => {
-    if (!mainCategory && allCategories.length > 0) {
-      setMainCategory(allCategories[0].name);
+  const currentSubCategories = useMemo(() => {
+    if (!settings.customCategories) return ['General'];
+    for (const bucket of Object.values(settings.customCategories)) {
+      if (bucket[mainCategory]) return bucket[mainCategory].sort();
     }
-  }, [allCategories, mainCategory]);
-
-  useEffect(() => {
-    if (!subCategory || !subCategoriesInCat.includes(subCategory)) {
-        setSubCategory(subCategoriesInCat[0] || 'General');
-    }
-  }, [mainCategory, subCategoriesInCat, subCategory]);
+    return ['General'];
+  }, [mainCategory, settings.customCategories]);
 
   const handleGenerateNote = async () => {
     if (isGeneratingNote) return;
@@ -70,27 +127,36 @@ const AddExpense: React.FC<AddExpenseProps> = ({ settings, wealthItems, onAdd, o
     try {
       const gNote = await generateQuickNote(
         merchant.trim() || 'General Merchant', 
-        mainCategory, 
-        subCategory
+        mainCategory || 'General', 
+        subCategory || 'General'
       );
       setNote(gNote);
     } catch (e) {
-      setNote(`${merchant.trim() || 'General'}: ${subCategory}`);
+      setNote(`${merchant.trim() || 'General'}: ${subCategory || 'General'}`);
     } finally {
       setIsGeneratingNote(false);
     }
   };
 
   const handleSubmit = () => {
-    if (!amount) return;
+    if (!amount || !mainCategory) return;
+
+    const isNewCategory = !allMainCategories.includes(mainCategory);
+    const isNewSubCategory = subCategory && !currentSubCategories.includes(subCategory);
+
+    if (isNewCategory || isNewSubCategory) {
+      const confirmationMsg = `Confirm new taxonomy:\n${isNewCategory ? `• Category: ${mainCategory}\n` : ''}${isNewSubCategory ? `• Sub-Category: ${subCategory}` : ''}\n\nThis will be added to your registry. Continue?`;
+      if (!window.confirm(confirmationMsg)) return;
+    }
+
     triggerHaptic(20);
     
     const payload = {
       amount: Math.round(parseFloat(amount)),
       date,
-      category: selectedCategoryData?.bucket || 'Needs',
-      mainCategory,
-      subCategory,
+      category: detectedBucket,
+      mainCategory: mainCategory.trim(),
+      subCategory: (subCategory || 'General').trim(),
       merchant: merchant.trim() || 'General',
       note: note.trim() || merchant.trim() || 'General',
       paymentMethod: 'UPI' as PaymentMethod,
@@ -119,7 +185,7 @@ const AddExpense: React.FC<AddExpenseProps> = ({ settings, wealthItems, onAdd, o
           <button onClick={onCancel} className="p-1.5 bg-slate-100 dark:bg-slate-800 rounded-full text-slate-400 active:scale-90 transition-all"><X size={16} /></button>
         </div>
 
-        <div className="flex-1 overflow-y-auto no-scrollbar p-3 space-y-3 pb-8">
+        <div className="flex-1 overflow-y-auto no-scrollbar p-3 space-y-4 pb-8">
           <div className="text-center">
             <div className="relative border-b-2 border-brand-border pb-1 mx-auto max-w-[140px]">
               <span className="absolute left-0 top-1/2 -translate-y-1/2 text-lg font-black text-slate-300 dark:text-slate-600">{currencySymbol}</span>
@@ -153,26 +219,20 @@ const AddExpense: React.FC<AddExpenseProps> = ({ settings, wealthItems, onAdd, o
           </div>
 
           <div className="grid grid-cols-2 gap-2">
-            <div className="space-y-0.5">
-              <span className={labelClass}>Category</span>
-              <div className="relative">
-                <select value={mainCategory} onChange={(e) => setMainCategory(e.target.value)} className={menuButtonClass}>
-                  {allCategories.map(cat => <option key={cat.name} value={cat.name}>{cat.name}</option>)}
-                </select>
-                <ChevronDown size={10} className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
-              </div>
-            </div>
-            <div className="space-y-0.5">
-              <span className={labelClass}>Sub-Category</span>
-              <div className="relative">
-                <select value={subCategory} onChange={(e) => setSubCategory(e.target.value)} className={menuButtonClass}>
-                  {subCategoriesInCat.map(cat => (
-                    <option key={cat} value={cat}>{cat}</option>
-                  ))}
-                </select>
-                <ChevronDown size={10} className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
-              </div>
-            </div>
+            <Typeahead
+              label="Category"
+              value={mainCategory}
+              onChange={setMainCategory}
+              suggestions={allMainCategories}
+              placeholder="e.g. Housing"
+            />
+            <Typeahead
+              label="Sub-Category"
+              value={subCategory}
+              onChange={setSubCategory}
+              suggestions={currentSubCategories}
+              placeholder="e.g. Rent"
+            />
           </div>
 
           <div className="grid grid-cols-2 gap-2">
@@ -224,7 +284,7 @@ const AddExpense: React.FC<AddExpenseProps> = ({ settings, wealthItems, onAdd, o
             )}
             <button 
               onClick={handleSubmit} 
-              disabled={!amount}
+              disabled={!amount || !mainCategory}
               className="flex-1 py-3 bg-brand-primary text-brand-headerText font-black rounded-xl shadow-lg active:scale-[0.98] transition-all flex items-center justify-center gap-2 uppercase tracking-[0.1em] text-[10px] disabled:opacity-50"
             >
               <Check size={16} strokeWidth={4} /> {isEditing ? 'Update Expense' : 'Save Expense'}

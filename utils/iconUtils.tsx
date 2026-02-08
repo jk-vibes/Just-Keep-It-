@@ -1,3 +1,4 @@
+
 import React from 'react';
 import { 
   Home, Car, ShoppingBag, Zap, HeartPulse, Wifi, Smartphone, 
@@ -34,8 +35,8 @@ export const getCategoryIcon = (
   if (mc.includes('logistics') || mc.includes('transp') || mc.includes('fuel') || sc.includes('petrol')) return <Car size={size} />;
   if (mc.includes('household') || sc.includes('grocer') || sc.includes('supplies')) return <ShoppingBag size={size} />;
   if (sc.includes('util') || mc.includes('electricity') || mc.includes('power')) return <Zap size={size} />;
-  if (mc.includes('vital') || sc.includes('health') || sc.includes('medical') || sc.includes('insurance')) return <HeartPulse size={size} />;
-  if (mc.includes('comm') || sc.includes('internet') || sc.includes('wifi')) return <Wifi size={size} />;
+  if (mc.includes('vital') || mc.includes('essential') || sc.includes('health') || sc.includes('medical') || sc.includes('insurance')) return <HeartPulse size={size} />;
+  if (mc.includes('communication') || mc.includes('comm') || sc.includes('internet') || sc.includes('wifi')) return <Wifi size={size} />;
   if (sc.includes('phone') || sc.includes('mobile')) return <Smartphone size={size} />;
   if (sc.includes('edu') || sc.includes('course') || sc.includes('school')) return <BookOpen size={size} />;
   if (sc.includes('maintenance') || sc.includes('staff')) return <Construction size={size} />;
@@ -50,7 +51,7 @@ export const getCategoryIcon = (
   if (sc.includes('movie') || sc.includes('entertainment') || sc.includes('netflix')) return <Zap size={size} />;
 
   // Savings Hierarchy
-  if (sc.includes('sip') || sc.includes('stock') || sc.includes('mutual') || sc.includes('invest')) return <TrendingUp size={size} />;
+  if (sc.includes('sip') || sc.includes('stock') || sc.includes('mutual') || mc.includes('investment') || mc.includes('invest')) return <TrendingUp size={size} />;
   if (sc.includes('gold')) return <Gem size={size} />;
   if (sc.includes('crypto') || sc.includes('bitcoin')) return <Bitcoin size={size} />;
   if (sc.includes('pension') || sc.includes('retire') || sc.includes('nps')) return <PiggyBank size={size} />;

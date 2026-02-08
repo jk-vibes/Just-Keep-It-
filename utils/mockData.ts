@@ -1,3 +1,4 @@
+
 import { Expense, Income, WealthItem, BudgetItem, Bill, BudgetRule, Category, RecurringItem } from '../types';
 import { SUB_CATEGORIES, DEFAULT_CATEGORIES } from '../constants';
 
@@ -67,15 +68,15 @@ export const generate12MonthData = () => {
     { id: 'b1', name: 'Housing & Rent', amount: 80000, bucket: 'Needs', category: 'Housing', subCategory: 'Rent/Mortgage', isMock: true },
     { id: 'b2', name: 'Groceries Goal', amount: 25000, bucket: 'Needs', category: 'Household', subCategory: 'Groceries', isMock: true },
     { id: 'b3', name: 'Dining & Food', amount: 30000, bucket: 'Wants', category: 'Lifestyle', subCategory: 'Dining', isMock: true },
-    { id: 'b4', name: 'Monthly SIP', amount: 150000, bucket: 'Savings', category: 'Invest', subCategory: 'SIP/Mutual Fund', isMock: true },
+    { id: 'b4', name: 'Monthly SIP', amount: 150000, bucket: 'Savings', category: 'Investment', subCategory: 'SIP/Mutual Fund', isMock: true },
     { id: 'b5', name: 'Tech & Gadgets', amount: 20000, bucket: 'Wants', category: 'Lifestyle', subCategory: 'Tech Gadgets', isMock: true },
     { id: 'b6', name: 'Fuel Buffer', amount: 10000, bucket: 'Needs', category: 'Logistics', subCategory: 'Fuel', isMock: true }
   ];
 
   const rules: BudgetRule[] = [
     { id: 'r1', keyword: 'Zomato', category: 'Wants', mainCategory: 'Lifestyle', subCategory: 'Dining', isMock: true },
-    { id: 'r2', keyword: 'Airtel', category: 'Needs', mainCategory: 'Comm', subCategory: 'Internet', isMock: true },
-    { id: 'r3', keyword: 'Zerodha', category: 'Savings', mainCategory: 'Invest', subCategory: 'SIP/Mutual Fund', isMock: true }
+    { id: 'r2', keyword: 'Airtel', category: 'Needs', mainCategory: 'Communication', subCategory: 'Internet', isMock: true },
+    { id: 'r3', keyword: 'Zerodha', category: 'Savings', mainCategory: 'Investment', subCategory: 'SIP/Mutual Fund', isMock: true }
   ];
 
   const now = new Date();
