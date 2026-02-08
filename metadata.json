@@ -1,0 +1,7 @@
+{
+  "name": "Just Keep It",
+  "description": "High-fidelity AI personal finance tracker inspired by Just Kick design aesthetics.",
+  "requestFramePermissions": [
+    "camera"
+  ]
+}

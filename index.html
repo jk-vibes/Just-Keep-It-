@@ -1,0 +1,258 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="theme-color" content="#0a0a0a">
+  <title>Just Keep It - Premium Budget Tracker</title>
+  <link rel="manifest" href="/manifest.json">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://accounts.google.com/gsi/client" async defer></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            brand: {
+              primary: 'var(--brand-primary)',
+              secondary: 'var(--brand-secondary)',
+              accent: 'var(--brand-accent)',
+              accentUi: 'var(--brand-accent-ui)',
+              bg: 'var(--brand-bg)',
+              surface: 'var(--brand-surface)',
+              border: 'var(--brand-border)',
+              glow: 'var(--brand-glow)',
+              text: 'var(--brand-text)',
+              headerText: 'var(--brand-header-text)',
+            },
+            slate: {
+              50: '#f9f9f9',
+              100: '#f5f5f5',
+              200: '#e5e5e5',
+              300: '#d4d4d4',
+              400: '#a3a3a3',
+              500: '#737373',
+              600: '#525252',
+              700: '#404040',
+              800: '#262626',
+              900: '#171717',
+              950: '#0a0a0a',
+            }
+          },
+          fontFamily: {
+            sans: ['"Plus Jakarta Sans"', 'sans-serif'],
+          },
+          animation: {
+            'kick': 'fadeIn 0.3s ease-out forwards',
+            'slide-up': 'slideUp 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards',
+            'bounce-slow': 'bounce 3s infinite',
+            'pulse-slow': 'pulse 4s cubic-bezier(0.4, 0, 0.6, 1) infinite',
+            'float': 'float 6s ease-in-out infinite',
+            'mesh': 'meshMove 20s linear infinite',
+          },
+          keyframes: {
+            float: {
+              '0%, 100%': { transform: 'translateY(0)' },
+              '50%': { transform: 'translateY(-10px)' },
+            },
+            meshMove: {
+              '0%, 100%': { transform: 'translate(0, 0) scale(1)' },
+              '33%': { transform: 'translate(10%, 15%) scale(1.1)' },
+              '66%': { transform: 'translate(-5%, 10%) scale(0.9)' },
+            }
+          }
+        }
+      }
+    }
+  </script>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      /* Default (Batman/Neutral Base) */
+      --brand-bg: #000000;
+      --brand-surface: #0a0a0a;
+      --brand-border: #171717;
+      --brand-text: #f5f5f7;
+      --brand-primary: #fbbf24;
+      --brand-secondary: #171717;
+      --brand-accent: #1c1c1c;
+      --brand-accent-ui: #fbbf24;
+      --brand-glow: rgba(250, 204, 21, 0.1);
+      --brand-header-text: #000000;
+    }
+    
+    [data-theme='Spiderman'] {
+      --brand-bg: #fffbfb;
+      --brand-surface: #fff5f5;
+      --brand-border: #fee2e2;
+      --brand-text: #0f172a;
+      --brand-primary: #e11d48;
+      --brand-secondary: #1e40af;
+      --brand-accent: #ffe4e6; /* Light Red */
+      --brand-accent-ui: #e11d48;
+      --brand-glow: rgba(225, 29, 72, 0.1);
+      --brand-header-text: #ffffff;
+    }
+
+    [data-theme='CaptainAmerica'] {
+      --brand-bg: #05080f;
+      --brand-surface: #0a101f;
+      --brand-border: #141b2e;
+      --brand-primary: #0ea5e9;
+      --brand-secondary: #dc2626;
+      --brand-accent: #1e293b;
+      --brand-accent-ui: #0ea5e9;
+      --brand-glow: rgba(14, 165, 233, 0.2);
+      --brand-header-text: #ffffff;
+    }
+
+    [data-theme='Naruto'] {
+      --brand-bg: #fffcf9;
+      --brand-surface: #fff8f1;
+      --brand-border: #ffedd5;
+      --brand-text: #1e293b;
+      --brand-primary: #f97316;
+      --brand-secondary: #eab308;
+      --brand-accent: #ffedd5; /* Light Orange */
+      --brand-accent-ui: #f97316;
+      --brand-glow: rgba(249, 115, 22, 0.08);
+      --brand-header-text: #ffffff;
+    }
+
+    [data-theme='Batman'] {
+      --brand-bg: #000000;
+      --brand-surface: #0a0a0a;
+      --brand-border: #171717;
+      --brand-primary: #fbbf24;
+      --brand-secondary: #171717;
+      --brand-accent: #1c1c1c;
+      --brand-accent-ui: #fbbf24;
+      --brand-text: #f5f5f7;
+      --brand-glow: rgba(251, 191, 36, 0.15);
+      --brand-header-text: #000000;
+    }
+
+    [data-theme='Moon'] {
+      --brand-bg: #000000;
+      --brand-surface: #0a0a0a;
+      --brand-border: #1f1f1f;
+      --brand-primary: #1a1a1a;
+      --brand-secondary: #000000;
+      --brand-accent: #171717;
+      --brand-accent-ui: #ffffff;
+      --brand-glow: rgba(255, 255, 255, 0.05);
+      --brand-text: #f9fafb;
+      --brand-header-text: #ffffff;
+    }
+
+    body {
+      font-family: 'Plus Jakarta Sans', sans-serif;
+      margin: 0;
+      padding: 0;
+      background-color: var(--brand-bg);
+      color: var(--brand-text);
+      transition: background-color 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+      -webkit-tap-highlight-color: transparent;
+      overscroll-behavior-y: none;
+    }
+
+    .no-scrollbar::-webkit-scrollbar { display: none; }
+    .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+
+    @keyframes slideUp {
+      from { opacity: 0; transform: translateY(20px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    @keyframes fadeIn {
+      from { opacity: 0; transform: scale(0.98); }
+      to { opacity: 1; transform: scale(1); }
+    }
+
+    .glass {
+      backdrop-filter: blur(16px);
+      background: rgba(255, 255, 255, 0.03);
+      border: 1px solid var(--brand-border);
+    }
+
+    .premium-card {
+      background: var(--brand-surface);
+      border: 1px solid var(--brand-border);
+      box-shadow: 0 4px 24px -10px rgba(0, 0, 0, 0.5);
+    }
+
+    .mesh-bg {
+      position: fixed;
+      inset: 0;
+      z-index: -1;
+      overflow: hidden;
+      background: var(--brand-bg);
+    }
+
+    .mesh-blob {
+      position: absolute;
+      width: 150%;
+      height: 150%;
+      top: -25%;
+      left: -25%;
+      background: radial-gradient(circle at 50% 50%, var(--brand-primary) 0%, transparent 60%),
+                  radial-gradient(circle at 20% 30%, var(--brand-accent) 0%, transparent 50%),
+                  radial-gradient(circle at 80% 80%, var(--brand-secondary) 0%, transparent 50%);
+      filter: blur(80px);
+      opacity: 0.12;
+      animation: meshMove 25s infinite alternate ease-in-out;
+    }
+    
+    @keyframes coinDropInto {
+      0% { transform: translateY(-120%) scale(0.5); opacity: 0; }
+      10% { opacity: 1; }
+      60% { transform: translateY(-15%) scale(1); opacity: 1; }
+      80% { transform: translateY(10%) scale(0.6); opacity: 0; }
+      100% { transform: translateY(10%) scale(0.6); opacity: 0; }
+    }
+
+    @keyframes coinFlyOut {
+      0% { transform: translateY(20%) scale(0.6); opacity: 0; }
+      20% { opacity: 1; }
+      80% { transform: translateY(-120%) scale(1); opacity: 1; }
+      100% { transform: translateY(-150%) scale(0.5); opacity: 0; }
+    }
+    
+    .coin-into { animation: coinDropInto 2.5s infinite ease-in; }
+    .coin-out { animation: coinFlyOut 2.5s infinite ease-out; }
+    .coin-gold { color: #facc15; filter: drop-shadow(0 0 4px rgba(250, 204, 21, 0.4)); }
+    .coin-red { color: #f43f5e; filter: drop-shadow(0 0 4px rgba(244, 63, 94, 0.4)); }
+    .coin-green { color: #10b981; filter: drop-shadow(0 0 4px rgba(16, 185, 129, 0.4)); }
+
+    .briefcase-float { animation: briefcaseFloat 4s infinite ease-in-out; }
+    @keyframes briefcaseFloat {
+      0%, 100% { transform: translateY(0); }
+      50% { transform: translateY(-4px); }
+    }
+
+    @keyframes goldFilling {
+      0% { height: 0; transform: translateY(100%); }
+      100% { height: 65%; transform: translateY(35%); }
+    }
+    .animate-gold-fill { animation: goldFilling 3s infinite alternate ease-in-out; }
+
+  </style>
+<script type="importmap">
+{
+  "imports": {
+    "@google/genai": "https://esm.sh/@google/genai@^1.35.0",
+    "lucide-react": "https://esm.sh/lucide-react@^0.562.0",
+    "recharts": "https://esm.sh/recharts@^3.6.0",
+    "react-dom/": "https://esm.sh/react-dom@^19.2.3/",
+    "react/": "https://esm.sh/react@^19.2.3/",
+    "react": "https://esm.sh/react@^19.2.3"
+  }
+}
+</script>
+</head>
+<body class="bg-brand-bg text-brand-text h-full w-full fixed inset-0 overflow-hidden">
+  <div id="root" class="h-full w-full"></div>
+</body>
+</html>
