@@ -27,7 +27,9 @@ export interface Bill {
   amount: number;
   dueDate: string;
   merchant: string;
-  category: Category;
+  category: Category; // The Bucket
+  mainCategory: string; // The "Category" level
+  subCategory?: string; // The "Sub-Category" level
   isPaid: boolean;
   frequency: Frequency;
   image?: string; // base64

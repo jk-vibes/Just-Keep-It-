@@ -45,47 +45,47 @@ const Navbar: React.FC<NavbarProps> = ({
     onViewChange('Add');
   };
 
-  const renderIcon = () => {
-    const ActionBadge = () => (
-      <button 
-        onClick={handleAddClick}
-        className="absolute -top-1 -right-1 bg-brand-accentUi text-brand-headerText w-8 h-8 rounded-full flex items-center justify-center shadow-[0_4px_12px_rgba(251,191,36,0.3)] border-2 border-white dark:border-slate-800 transition-all z-30 active:scale-75 pointer-events-auto"
+  const ActionBadge = () => (
+    <button 
+      onClick={handleAddClick}
+      className="absolute -top-1 -right-1 bg-brand-accentUi text-brand-bg w-8 h-8 rounded-full flex items-center justify-center shadow-[0_4px_12px_rgba(0,0,0,0.3)] border-2 border-brand-surface transition-all z-30 active:scale-75 pointer-events-auto"
+    >
+      <Plus size={20} strokeWidth={4} />
+    </button>
+  );
+
+  const JKBriefcase = ({ fillId, children }: { fillId: string, children?: React.ReactNode }) => (
+    <div className="relative animate-kick group">
+      <svg 
+        width="68" 
+        height="68" 
+        viewBox="0 0 24 24" 
+        fill="none" 
+        xmlns="http://www.w3.org/2000/svg" 
+        className="transition-transform duration-300 drop-shadow-2xl"
       >
-        <Plus size={20} strokeWidth={4} />
-      </button>
-    );
+        <path 
+          d="M4 8C4 7.44772 4.44772 7 5 7H19C19.5523 7 20 7.44772 20 8V20C20 21.1046 19.1046 22 18 22H6C4.89543 22 4 21.1046 4 20V8Z" 
+          fill={`url(#${fillId})`}
+          stroke="var(--brand-border)"
+          strokeWidth="0.5"
+        />
+        <path 
+          d="M8 7V5C8 3.89543 8.89543 3 10 3H14C15.1046 3 16 3.89543 16 5V7" 
+          stroke="var(--brand-text)" 
+          strokeWidth="2.2" 
+          strokeLinecap="round" 
+        />
+      </svg>
+      {children && (
+        <div className="absolute inset-0 flex items-center justify-center mt-2 pointer-events-none">
+          {children}
+        </div>
+      )}
+    </div>
+  );
 
-    const JKBriefcase = ({ fillId, children }: { fillId: string, children?: React.ReactNode }) => (
-      <div className="relative animate-kick group">
-        <svg 
-          width="68" 
-          height="68" 
-          viewBox="0 0 24 24" 
-          fill="none" 
-          xmlns="http://www.w3.org/2000/svg" 
-          className="transition-transform duration-300 drop-shadow-2xl"
-        >
-          <path 
-            d="M4 8C4 7.44772 4.44772 7 5 7H19C19.5523 7 20 7.44772 20 8V20C20 21.1046 19.1046 22 18 22H6C4.89543 22 4 21.1046 4 20V8Z" 
-            fill={`url(#${fillId})`}
-            stroke="var(--brand-border)"
-            strokeWidth="0.5"
-          />
-          <path 
-            d="M8 7V5C8 3.89543 8.89543 3 10 3H14C15.1046 3 16 3.89543 16 5V7" 
-            stroke="var(--brand-text)" 
-            strokeWidth="2.2" 
-            strokeLinecap="round" 
-          />
-        </svg>
-        {children && (
-          <div className="absolute inset-0 flex items-center justify-center mt-3 pointer-events-none">
-            {children}
-          </div>
-        )}
-      </div>
-    );
-
+  const renderIcon = () => {
     if (currentView === 'Budget') {
       const rNeeds = 10;
       const rWants = 7.2;
@@ -152,25 +152,22 @@ const Navbar: React.FC<NavbarProps> = ({
       const isPositive = totalAssets > totalLiabilities;
       const statusColor = isPositive ? "#22c55e" : "#ef4444";
       
-      // Calculate fill based on asset/liability ratio
       let accountFill = 0;
       if (isPositive) {
-        // Assets are more: Fill represents the "equity" part of assets
         accountFill = totalAssets > 0 ? ((totalAssets - totalLiabilities) / totalAssets) * 100 : 0;
       } else {
-        // Liabilities are more: Fill represents how much of the debt is covered by assets
         accountFill = totalLiabilities > 0 ? (totalAssets / totalLiabilities) * 100 : 0;
       }
       
-      accountFill = Math.min(100, Math.max(5, accountFill)); // Ensure at least a sliver is visible
+      accountFill = Math.min(100, Math.max(5, accountFill));
 
       return (
         <div className="relative">
           <svg width="0" height="0" className="absolute">
             <defs>
               <linearGradient id="accountBrandedFill" x1="0" y1="1" x2="0" y2="0">
-                <stop offset={`${accountFill}%`} stopColor={statusColor} />
-                <stop offset={`${accountFill}%`} stopColor="#cbd5e1" stopOpacity="0.2" />
+                <stop offset={`${accountFill}%`} style={{ stopColor: statusColor }} />
+                <stop offset={`${accountFill}%`} style={{ stopColor: '#cbd5e1', stopOpacity: 0.2 }} />
               </linearGradient>
             </defs>
           </svg>
@@ -186,12 +183,16 @@ const Navbar: React.FC<NavbarProps> = ({
             <svg width="0" height="0" className="absolute">
               <defs>
                 <linearGradient id="dashboardBrandedFill" x1="0" y1="1" x2="0" y2="0">
-                  <stop offset="100%" stopColor="var(--brand-accent-ui)" />
+                  <stop offset="100%" style={{ stopColor: 'var(--brand-accent-ui)' }} />
                 </linearGradient>
               </defs>
             </svg>
             <JKBriefcase fillId="dashboardBrandedFill">
-              <MessageCircleQuestion className="text-white" size={24} strokeWidth={3} />
+              <MessageCircleQuestion 
+                style={{ color: 'var(--brand-bg)' }} 
+                size={26} 
+                strokeWidth={3} 
+              />
             </JKBriefcase>
           </div>
         );
@@ -202,8 +203,8 @@ const Navbar: React.FC<NavbarProps> = ({
         <svg width="0" height="0" className="absolute">
           <defs>
             <linearGradient id="wealthBrandedFill" x1="0" y1="1" x2="0" y2="0">
-              <stop offset={`${spentPercentage}%`} stopColor="#ef4444" />
-              <stop offset={`${spentPercentage}%`} stopColor="#22c55e" />
+              <stop offset={`${spentPercentage}%`} style={{ stopColor: '#ef4444' }} />
+              <stop offset={`${spentPercentage}%`} style={{ stopColor: '#22c55e' }} />
             </linearGradient>
           </defs>
         </svg>

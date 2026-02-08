@@ -1,4 +1,3 @@
-
 import { Expense, Income, WealthItem, BudgetItem, Bill, BudgetRule, Category, RecurringItem } from '../types';
 import { SUB_CATEGORIES, DEFAULT_CATEGORIES } from '../constants';
 
@@ -98,17 +97,25 @@ export const generate12MonthData = () => {
       });
     });
 
-    const billMerchants = ['Society Dues', 'Electricity Board', 'Gas Provider', 'Internet Service', 'Life Insurance'];
-    billMerchants.forEach((merchant, idx) => {
+    const billMerchants = [
+      { name: 'Society Dues', cat: 'Housing', sub: 'Maintenance' },
+      { name: 'Electricity Board', cat: 'Housing', sub: 'Utilities' },
+      { name: 'Gas Provider', cat: 'Housing', sub: 'Utilities' },
+      { name: 'Internet Service', cat: 'Communication', sub: 'Internet' },
+      { name: 'Life Insurance', cat: 'Essentials', sub: 'Health/Insurance' }
+    ];
+    billMerchants.forEach((bInfo, idx) => {
       bills.push({
         id: `bill-${m}-${idx}`,
         amount: Math.floor(Math.random() * 5000) + 1000,
         dueDate: new Date(monthDate.getFullYear(), monthDate.getMonth(), idx + 5).toISOString().split('T')[0],
-        merchant,
+        merchant: bInfo.name,
         category: 'Needs',
+        mainCategory: bInfo.cat,
+        subCategory: bInfo.sub,
         isPaid: m > 0,
         frequency: 'Monthly',
-        note: `Standard monthly dues for ${merchant}`,
+        note: `Standard monthly dues for ${bInfo.name}`,
         accountId: 'w1',
         isMock: true
       });

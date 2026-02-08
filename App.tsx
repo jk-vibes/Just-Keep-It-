@@ -59,7 +59,6 @@ const BackgroundCharacter = ({ theme }: { theme: AppTheme }) => {
   );
 };
 
-// Premium sharp toast positioned at bottom-left corner
 const Toast: React.FC<{ 
   message: string; 
   type?: 'success' | 'error' | 'info' | 'advice'; 
@@ -114,7 +113,6 @@ const Toast: React.FC<{
   return (
     <div className="fixed bottom-[10px] left-4 z-[400] animate-slide-up pointer-events-none">
       <div className={`w-[260px] pointer-events-auto overflow-hidden bg-[#0c0c0c] border border-white/10 shadow-[0_20px_50px_rgba(0,0,0,0.5)] flex flex-col rounded-2xl`}>
-        {/* Header with theme-aware gradient */}
         <div className={`px-3 py-1.5 bg-gradient-to-r ${gradient} flex items-center justify-between`}>
           <div className="flex items-center gap-2">
             <span className="text-white opacity-80">{icon}</span>
@@ -124,8 +122,6 @@ const Toast: React.FC<{
             <X size={12} />
           </button>
         </div>
-        
-        {/* Body content */}
         <div className="p-3.5 relative">
           <div className="flex items-start">
             <div className="flex-1 min-w-0">
@@ -135,8 +131,6 @@ const Toast: React.FC<{
             </div>
           </div>
         </div>
-
-        {/* Progress Bar Timer */}
         <div className="h-[1.5px] w-full bg-white/5">
           <div 
             className="h-full bg-white opacity-30 transition-all duration-75 ease-linear"
@@ -174,6 +168,7 @@ const App: React.FC = () => {
   const [isAddingRule, setIsAddingRule] = useState(false);
   const [editingRecord, setEditingRecord] = useState<any | null>(null);
   const [editingBudget, setEditingBudget] = useState<BudgetItem | null>(null);
+  const [editingRule, setEditingRule] = useState<BudgetRule | null>(null);
   
   const [settlingBill, setSettlingBill] = useState<Bill | null>(null);
   const [isShowingAskMe, setIsShowingAskMe] = useState(false);
@@ -192,7 +187,7 @@ const App: React.FC = () => {
   }, []);
 
   const fetchAdvice = useCallback(async () => {
-    if (Date.now() - lastAdviceFetch < 300000) return; // 5 minute cooldown
+    if (Date.now() - lastAdviceFetch < 300000) return;
     try {
       const advice = await getFatherlyAdvice(expenses, wealthItems, settings);
       setFatherlyAdvice(advice);
@@ -206,7 +201,7 @@ const App: React.FC = () => {
   useEffect(() => {
     if (isAuthenticated && !isLoading && currentView === 'Dashboard') {
       fetchAdvice();
-      const interval = setInterval(fetchAdvice, 300000); // Check every 5 mins
+      const interval = setInterval(fetchAdvice, 300000);
       return () => clearInterval(interval);
     }
   }, [isAuthenticated, isLoading, currentView, fetchAdvice]);
@@ -397,11 +392,9 @@ const App: React.FC = () => {
       return prev.map(e => e.id === id ? { ...e, ...updates } : e);
     });
 
-    // Auto-create rule logic when AI upgrade is applied
     if (updates.isAIUpgraded && updates.isConfirmed && targetExpense?.merchant) {
       const keyword = targetExpense.merchant.trim();
       const existingRule = rules.find(r => r.keyword.toLowerCase() === keyword.toLowerCase());
-      
       if (keyword.length > 2 && !existingRule) {
         const newRule: BudgetRule = {
           id: Math.random().toString(36).substring(2, 11),
@@ -414,7 +407,6 @@ const App: React.FC = () => {
         showToast(`Smart Rule cached for ${keyword}`, 'success');
       }
     }
-    
     showToast("Transaction updated.", 'success');
   }, [rules, showToast]);
 
@@ -497,132 +489,69 @@ const App: React.FC = () => {
     if (isLightTheme) { root.classList.remove('dark'); } else { root.classList.add('dark'); }
   }, [settings.appTheme, settings.density]);
 
-  if (isResetting) return <div className="w-full h-screen bg-brand-bg flex items-center justify-center"><Loader2 className="animate-spin text-brand-primary" size={32} /></div>;
-  if (isLoading) return <div className="w-full h-screen bg-brand-bg flex items-center justify-center"><Loader2 className="animate-spin text-brand-primary" size={32} /></div>;
+  if (isResetting || isLoading) return <div className="w-full h-screen bg-brand-bg flex items-center justify-center"><Loader2 className="animate-spin text-brand-primary" size={32} /></div>;
   if (!isAuthenticated) return <AuthScreen onLogin={(p) => { setUser(p); setIsAuthenticated(true); }} />;
 
   const handleNavbarViewChange = (v: View) => {
-    if (v === 'Affordability') {
-      setIsShowingAskMe(true);
-    } else if (v === 'AddExpense') {
-      setIsAddingExpense(true);
-    } else if (v === 'AddIncome') {
-      setIsAddingIncome(true);
-    } else if (v === 'Add') {
+    if (v === 'Affordability') setIsShowingAskMe(true);
+    else if (v === 'AddExpense') setIsAddingExpense(true);
+    else if (v === 'AddIncome') setIsAddingIncome(true);
+    else if (v === 'Add') {
       if (currentView === 'Accounts') setIsAddingAccount(true);
       else if (currentView === 'Budget') setIsAddingBudget(true);
       else if (currentView === 'Rules') setIsAddingRule(true);
       else setIsAddingExpense(true);
-    } else {
-      setCurrentView(v);
-    }
+    } else setCurrentView(v);
   };
 
   return (
     <div className="h-screen overflow-hidden bg-brand-bg flex flex-col relative text-brand-text transition-colors duration-500">
       <div className="mesh-bg"><div className="mesh-blob"></div></div>
       <BackgroundCharacter theme={settings.appTheme || 'Batman'} />
-      
       <header className="flex-none bg-brand-surface/95 px-3 py-3 border-b border-brand-border z-50 backdrop-blur-md">
         <div className="max-w-2xl mx-auto flex justify-between items-center w-full">
           <div className="flex items-center gap-1.5">
-               <BrandedLogo size="sm" className="mt-1" healthStatus={globalMetrics.healthStatus} />
-               <button 
-                 onClick={() => { triggerHaptic(); setIsShowingVersionLog(true); }}
-                 className="bg-brand-accentUi text-brand-bg text-[10px] font-black px-2 py-0.5 rounded-full shadow-lg active:scale-95 transition-all"
-               >
-                 {APP_VERSION}
-               </button>
+               <BrandedLogo size="sm" healthStatus={globalMetrics.healthStatus} />
+               <button onClick={() => { triggerHaptic(); setIsShowingVersionLog(true); }} className="bg-brand-accentUi text-brand-bg text-[10px] font-black px-2 py-0.5 rounded-full shadow-lg active:scale-95 transition-all">{APP_VERSION}</button>
           </div>
           <div className="flex items-center gap-1.5 sm:gap-2">
             <div className="flex items-center gap-1.5">
-              <button 
-                onClick={() => { triggerHaptic(); setCurrentView(currentView === 'Dashboard' ? 'Budget' : 'Dashboard'); }}
-                className={`p-2 rounded-xl border-2 transition-all ${(currentView === 'Dashboard' || currentView === 'Budget') ? 'bg-brand-accentUi/10 border-brand-accentUi text-brand-accentUi' : 'bg-white/5 border-transparent text-slate-400'}`}
-              >
-                {currentView === 'Dashboard' ? <Target size={18} /> : <LayoutDashboard size={18} />}
-              </button>
-              <button 
-                onClick={() => { triggerHaptic(); setCurrentView(currentView === 'Accounts' ? 'Ledger' : 'Accounts'); }}
-                className={`p-2 rounded-xl border-2 transition-all ${(currentView === 'Accounts' || currentView === 'Ledger') ? 'bg-brand-accentUi/10 border-brand-accentUi text-brand-accentUi' : 'bg-white/5 border-transparent text-slate-400'}`}
-              >
-                {currentView === 'Accounts' ? <List size={18} /> : <Wallet size={18} />}
-              </button>
+              <button onClick={() => { triggerHaptic(); setCurrentView(currentView === 'Dashboard' ? 'Budget' : 'Dashboard'); }} className={`p-2 rounded-xl border-2 transition-all ${(currentView === 'Dashboard' || currentView === 'Budget') ? 'bg-brand-accentUi/10 border-brand-accentUi text-brand-accentUi' : 'bg-white/5 border-transparent text-slate-400'}`}>{currentView === 'Dashboard' ? <Target size={18} /> : <LayoutDashboard size={18} />}</button>
+              <button onClick={() => { triggerHaptic(); setCurrentView(currentView === 'Accounts' ? 'Ledger' : 'Accounts'); }} className={`p-2 rounded-xl border-2 transition-all ${(currentView === 'Accounts' || currentView === 'Ledger') ? 'bg-brand-accentUi/10 border-brand-accentUi text-brand-accentUi' : 'bg-white/5 border-transparent text-slate-400'}`}>{currentView === 'Accounts' ? <List size={18} /> : <Wallet size={18} />}</button>
             </div>
             <div className="flex items-center gap-1.5 ml-1">
-              <button onClick={() => setCurrentView('Rules')} className={`p-2 rounded-xl border-2 transition-all ${currentView === 'Rules' ? 'bg-indigo-50/10 border-indigo-500 text-indigo-400 shadow-sm' : 'bg-white/5 border-transparent text-slate-400'}`}><Zap size={18} /></button>
-              <button onClick={() => setCurrentView('Notifications')} className={`relative p-2 rounded-xl border-2 transition-all ${currentView === 'Notifications' ? 'bg-brand-accentUi/10 border-brand-accentUi text-brand-accentUi' : 'bg-white/5 border-transparent text-slate-400'}`}><Bell size={18} /></button>
-              <button onClick={() => setCurrentView('Profile')} className={`p-0.5 rounded-full transition-all ${currentView === 'Profile' ? 'ring-2 ring-brand-primary ring-offset-2 ring-offset-brand-bg' : ''}`}>
+              <button onClick={() => setCurrentView('Rules')} className={`p-2 rounded-xl border-2 transition-all ${currentView === 'Rules' ? 'bg-indigo-50/10 border-indigo-500 text-indigo-400' : 'bg-white/5 border-transparent text-slate-400'}`}><Zap size={18} /></button>
+              <button onClick={() => setCurrentView('Notifications')} className={`p-2 rounded-xl border-2 transition-all ${currentView === 'Notifications' ? 'bg-brand-accentUi/10 border-brand-accentUi text-brand-accentUi' : 'bg-white/5 border-transparent text-slate-400'}`}><Bell size={18} /></button>
+              <button onClick={() => setCurrentView('Profile')} className={`p-0.5 rounded-full transition-all ${currentView === 'Profile' ? 'ring-2 ring-brand-primary' : ''}`}>
                 {user?.avatar ? <img src={user.avatar} className="w-8 h-8 rounded-full border border-brand-border object-cover" /> : <div className="w-8 h-8 rounded-full bg-white/5 flex items-center justify-center text-slate-400"><SettingsIcon size={16} /></div>}
               </button>
             </div>
           </div>
         </div>
       </header>
-
       <main className="flex-1 overflow-y-auto no-scrollbar relative z-10">
         <div className="max-w-2xl mx-auto w-full px-2 min-h-full flex flex-col">
           <div className="flex-1">
-            {currentView === 'Dashboard' && (
-              <Dashboard 
-                expenses={visibleExpenses} 
-                incomes={visibleIncomes} 
-                wealthItems={visibleWealth} 
-                budgetItems={visibleBudgetItems} 
-                settings={settings} 
-                user={user} 
-                onCategorizeClick={() => setIsCategorizing(true)} 
-                onConfirmExpense={() => {}} 
-                onSmartAdd={() => {}} 
-                onNavigate={(v) => setCurrentView(v)} 
-                viewDate={viewDate} 
-                onMonthChange={(d) => setViewDate(new Date(viewDate.getFullYear(), viewDate.getMonth() + d, 1))} 
-                onGoToDate={() => {}} 
-                onAffordabilityCheck={() => setIsShowingAskMe(true)} 
-              />
-            )}
+            {currentView === 'Dashboard' && <Dashboard expenses={visibleExpenses} incomes={visibleIncomes} wealthItems={visibleWealth} budgetItems={visibleBudgetItems} settings={settings} user={user} onCategorizeClick={() => setIsCategorizing(true)} onConfirmExpense={() => {}} onSmartAdd={() => {}} onNavigate={(v) => setCurrentView(v)} viewDate={viewDate} onMonthChange={(d) => setViewDate(new Date(viewDate.getFullYear(), viewDate.getMonth() + d, 1))} onGoToDate={() => {}} onAffordabilityCheck={() => setIsShowingAskMe(true)} />}
             {currentView === 'Ledger' && <Ledger expenses={visibleExpenses} incomes={visibleIncomes} wealthItems={visibleWealth} bills={visibleBills} rules={rules} settings={settings} onDeleteExpense={(id) => setExpenses(p => p.filter(e => e.id !== id))} onDeleteIncome={(id) => setIncomes(p => p.filter(i => i.id !== id))} onDeleteWealth={(id) => setWealthItems(p => p.filter(w => w.id !== id))} onConfirm={(id, cat) => handleUpdateExpense(id, { category: cat, isConfirmed: true })} onUpdateExpense={handleUpdateExpense} onEditRecord={(r) => setEditingRecord(r)} onAddRecord={() => setIsAddingExpense(true)} onAddIncome={() => setIsAddingIncome(true)} onAddBulk={(items) => setExpenses(p => [...p, ...items.map(i => ({ ...i, id: Math.random().toString(36).substring(2, 11) }))])} viewDate={viewDate} onMonthChange={(d) => setViewDate(new Date(viewDate.getFullYear(), viewDate.getMonth() + d, 1))} onGoToDate={() => {}} addNotification={addNotification} showToast={showToast} />}
             {currentView === 'Budget' && <BudgetPlanner budgetItems={visibleBudgetItems} recurringItems={recurringItems} expenses={visibleExpenses} bills={visibleBills} wealthItems={visibleWealth} settings={settings} onAddBudget={() => setIsAddingBudget(true)} onEditBudget={(b) => setEditingBudget(b)} onUpdateBudget={(id, updates) => setBudgetItems(prev => prev.map(b => b.id === id ? { ...b, ...updates } : b))} onDeleteBudget={(id) => setBudgetItems(prev => prev.filter(b => b.id !== id))} onPayBill={(b) => setSettlingBill(b)} onDeleteBill={(id) => setBills(p => p.filter(b => b.id !== id))} onEditBill={(b) => setEditingRecord(b)} onEditExpense={(e) => setEditingRecord(e)} onAddBillClick={() => setIsAddingBill(true)} onAddRecurringClick={() => setIsAddingExpense(true)} onEditRecurring={(r) => setEditingRecord(r)} viewDate={viewDate} />}
             {currentView === 'Accounts' && <Accounts wealthItems={visibleWealth} expenses={visibleExpenses} incomes={visibleIncomes} bills={visibleBills} settings={settings} onUpdateWealth={handleUpdateWealth} onDeleteWealth={(id) => setWealthItems(p => p.filter(w => w.id !== id))} onAddWealth={() => {}} onEditAccount={(a) => setEditingRecord({...a, mode: 'Account'})} onAddAccountClick={() => setIsAddingAccount(true)} onOpenCategoryManager={() => setIsShowingCategoryManager(true)} onAddTransferClick={() => setIsAddingTransfer(true)} onDeleteExpense={(id) => setExpenses(p => p.filter(e => e.id !== id))} onDeleteIncome={(id) => setIncomes(p => p.filter(i => i.id !== id))} />}
-            {currentView === 'Rules' && <RulesEngine rules={rules.filter(r => settings.dataFilter === 'user' ? !r.isMock : settings.dataFilter === 'mock' ? r.isMock : true)} settings={settings} onAddRule={() => setIsAddingRule(true)} onDeleteRule={(id) => setRules(p => p.filter(r => r.id !== id))} />}
+            {currentView === 'Rules' && <RulesEngine rules={rules.filter(r => settings.dataFilter === 'user' ? !r.isMock : settings.dataFilter === 'mock' ? r.isMock : true)} settings={settings} onAddRule={() => setIsAddingRule(true)} onEditRule={(r) => setEditingRule(r)} onDeleteRule={(id) => setRules(p => p.filter(r => r.id !== id))} />}
             {currentView === 'Notifications' && <NotificationPane notifications={notifications} onClose={() => setCurrentView('Dashboard')} onClear={() => setNotifications([])} isPage={true} />}
             {currentView === 'Profile' && <Settings settings={settings} user={user} onLogout={() => setIsAuthenticated(false)} onReset={handleReset} onToggleTheme={() => {}} onUpdateAppTheme={(t) => setSettings(s => ({ ...s, appTheme: t }))} onUpdateCurrency={(c) => setSettings(s => ({ ...s, currency: c }))} onUpdateBaseIncome={(income) => setSettings(s => ({ ...s, monthlyIncome: income }))} onUpdateSplit={(split) => setSettings(s => ({ ...s, split }))} onSync={() => {}} onExport={handleExportJSON} onImport={handleCSVImport} onRestore={handleRestoreJSON} onAddBulk={() => {}} isSyncing={isSyncing} onLoadMockData={handleLoadMockData} onPurgeMockData={handlePurgeMockData} onUpdateDensity={(d) => setSettings(s => ({ ...s, density: d }))} onOpenCategoryManager={() => setIsShowingCategoryManager(true)} />}
           </div>
           <Footer />
         </div>
       </main>
-
       {toast && <Toast {...toast} theme={settings.appTheme || 'Batman'} onClose={() => setToast(null)} />}
-      <Navbar 
-        currentView={currentView} 
-        remainingPercentage={globalMetrics.remainingPercentage} 
-        netWorth={globalMetrics.netWorth} 
-        totalAssets={globalMetrics.totalAssets}
-        totalLiabilities={globalMetrics.totalLiabilities}
-        categoryPercentages={globalMetrics.categoryPercentages} 
-        onViewChange={handleNavbarViewChange} 
-      />
-      
-      {/* ADD/EDIT MODALS */}
+      <Navbar currentView={currentView} remainingPercentage={globalMetrics.remainingPercentage} netWorth={globalMetrics.netWorth} totalAssets={globalMetrics.totalAssets} totalLiabilities={globalMetrics.totalLiabilities} categoryPercentages={globalMetrics.categoryPercentages} onViewChange={handleNavbarViewChange} />
       {(isAddingExpense || (editingRecord && !editingRecord.mode && !editingRecord.recordType?.includes('income') && !editingRecord.dueDate)) && <AddExpense settings={settings} wealthItems={wealthItems} initialData={editingRecord} onAdd={(e) => { setExpenses(p => [...p, { ...e, id: Math.random().toString(36).substring(2, 11) }]); setIsAddingExpense(false); showToast("Expense logged.", 'success'); }} onUpdate={(id, updates) => { handleUpdateExpense(id, updates); setEditingRecord(null); }} onDelete={(id) => { setExpenses(p => p.filter(e => e.id !== id)); setEditingRecord(null); }} onCancel={() => { setIsAddingExpense(false); setEditingRecord(null); }} />}
       {(isAddingIncome || (editingRecord && editingRecord.recordType === 'income')) && <AddIncome settings={settings} wealthItems={wealthItems} initialData={editingRecord} onAdd={(i) => { setIncomes(p => [...p, { ...i, id: Math.random().toString(36).substring(2, 11) }]); setIsAddingIncome(false); showToast("Inflow recorded.", 'success'); }} onUpdate={(id, updates) => { handleUpdateIncome(id, updates); setEditingRecord(null); }} onDelete={(id) => { setIncomes(p => p.filter(i => i.id !== id)); setEditingRecord(null); }} onCancel={() => { setIsAddingIncome(false); setEditingRecord(null); }} />}
       {(isAddingBill || (editingRecord && editingRecord.dueDate)) && <AddBill settings={settings} wealthItems={wealthItems} initialData={editingRecord} onAddBills={(newBills) => { setBills(p => [...p, ...newBills]); setIsAddingBill(false); showToast("Obligation added.", 'success'); }} onUpdate={(id, updates) => { setBills(prev => prev.map(b => b.id === id ? { ...b, ...updates } : b)); setEditingRecord(null); }} onDelete={(id) => { setBills(p => p.filter(b => b.id !== id)); setEditingRecord(null); }} onCancel={() => { setIsAddingBill(false); setEditingRecord(null); }} />}
       {(isAddingAccount || (editingRecord && editingRecord.mode === 'Account')) && <AddAccount settings={settings} initialData={editingRecord} onSave={(a) => { setWealthItems(p => [...p, { ...a, id: Math.random().toString(36).substring(2, 11) }]); setIsAddingAccount(false); showToast("Account registered.", 'success'); }} onUpdate={handleUpdateWealth} onDelete={(id) => { setWealthItems(p => p.filter(w => w.id !== id)); setEditingRecord(null); }} onCancel={() => { setIsAddingAccount(false); setEditingRecord(null); }} />}
-      {isAddingRule && <AddRule settings={settings} onAdd={(r) => { setRules(p => [...p, { ...r, id: Math.random().toString(36).substring(2, 11) }]); setIsAddingRule(false); showToast("Neural rule cached.", 'success'); }} onCancel={() => setIsAddingRule(false)} />}
-      {(isAddingTransfer || (editingRecord && editingRecord.recordType === 'transfer')) && <AddTransfer settings={settings} wealthItems={wealthItems} initialData={editingRecord} onTransfer={(f, t, a, d, n) => { 
-          setWealthItems(prev => prev.map(w => { 
-              if (w.id === f) return { ...w, value: w.type === 'Liability' ? w.value + a : w.value - a }; 
-              if (w.id === t) return { ...w, value: w.type === 'Liability' ? w.value - a : w.value + a }; 
-              return w; 
-          })); 
-          setExpenses(p => [...p, { id: Math.random().toString(36).substring(2, 11), amount: a, date: d, category: 'Uncategorized', mainCategory: 'Internal', subCategory: 'Transfer', isConfirmed: true, sourceAccountId: f, merchant: 'Transfer', note: n }]);
-          setIsAddingTransfer(false); 
-          setEditingRecord(null);
-          showToast("Internal transfer completed.", 'success');
-      }} onCancel={() => { setIsAddingTransfer(false); setEditingRecord(null); }} />}
-
+      {(isAddingRule || editingRule) && <AddRule settings={settings} initialData={editingRule} onAdd={(r) => { setRules(p => [...p, { ...r, id: Math.random().toString(36).substring(2, 11) }]); setIsAddingRule(false); showToast("Neural rule cached.", 'success'); }} onUpdate={(id, updates) => { setRules(prev => prev.map(r => r.id === id ? { ...r, ...updates } : r)); setEditingRule(null); showToast("Rule updated.", 'success'); }} onDelete={(id) => { setRules(p => p.filter(r => r.id !== id)); setEditingRule(null); showToast("Rule removed.", 'success'); }} onCancel={() => { setIsAddingRule(false); setEditingRule(null); }} />}
+      {(isAddingTransfer || (editingRecord && editingRecord.recordType === 'transfer')) && <AddTransfer settings={settings} wealthItems={wealthItems} initialData={editingRecord} onTransfer={(f, t, a, d, n) => { setWealthItems(prev => prev.map(w => { if (w.id === f) return { ...w, value: w.type === 'Liability' ? w.value + a : w.value - a }; if (w.id === t) return { ...w, value: w.type === 'Liability' ? w.value - a : w.value + a }; return w; })); setExpenses(p => [...p, { id: Math.random().toString(36).substring(2, 11), amount: a, date: d, category: 'Uncategorized', mainCategory: 'Internal', subCategory: 'Transfer', isConfirmed: true, sourceAccountId: f, merchant: 'Transfer', note: n }]); setIsAddingTransfer(false); setEditingRecord(null); showToast("Internal transfer completed.", 'success'); }} onCancel={() => { setIsAddingTransfer(false); setEditingRecord(null); }} />}
       {(isAddingBudget || editingBudget) && <BudgetGoalModal settings={settings} expenses={expenses} initialData={editingBudget} onSave={(item) => { setBudgetItems(p => [...p, { ...item, id: Math.random().toString(36).substring(2, 11) }]); setIsAddingBudget(false); showToast("Spending goal defined.", 'success'); }} onUpdate={(id, updates) => { setBudgetItems(p => p.map(b => b.id === id ? { ...b, ...updates } : b)); setEditingBudget(null); showToast("Goal parameters updated.", 'success'); }} onDelete={(id) => { setBudgetItems(p => p.filter(b => b.id !== id)); setEditingBudget(null); showToast("Goal removed from registry.", 'success'); }} onCancel={() => { setIsAddingBudget(false); setEditingBudget(null); }} viewDate={viewDate} />}
-
       {settlingBill && <BillPayModal bill={settlingBill} wealthItems={wealthItems} settings={settings} onConfirm={(accId) => executeBillSettlement(settlingBill, accId)} onCancel={() => setSettlingBill(null)} />}
       {isShowingAskMe && <AskMe settings={settings} wealthItems={wealthItems} expenses={expenses} onCancel={() => setIsShowingAskMe(false)} />}
       {isShowingVersionLog && <VersionLog onClose={() => setIsShowingVersionLog(false)} />}

@@ -3,12 +3,11 @@ import { BudgetItem, RecurringItem, UserSettings, Category, Expense, Bill, Wealt
 import { CATEGORY_COLORS, getCurrencySymbol } from '../constants';
 import { 
   Plus, Target, 
-  LayoutGrid, List, Layers,
   ChevronRight, Activity,
   Shield, Star, Trophy,
   Edit2, AlertCircle,
-  ReceiptText, Coins, RefreshCw, Calendar,
-  Clock
+  ReceiptText, Coins, RefreshCw,
+  Clock, Trash2
 } from 'lucide-react';
 import { triggerHaptic } from '../utils/haptics';
 
@@ -45,103 +44,24 @@ const CategoryStatCard: React.FC<CategoryStatCardProps> = ({
       }`}
       style={{ borderLeftColor: color }}
     >
-      <div className="flex items-center gap-1 mb-1 opacity-60">
-        <Icon size={isCompact ? 8 : 10} style={{ color: isActive ? color : undefined }} />
-        <span className="text-[7px] font-black text-slate-500 uppercase tracking-widest truncate">{label}</span>
-      </div>
-      <div className="flex items-baseline gap-1">
-        <h4 className={`${isCompact ? 'text-xs' : 'text-sm'} font-black text-brand-text tracking-tighter leading-none`}>
-          {Math.round(percentage)}%
-        </h4>
-      </div>
-      <p className="text-[6px] font-bold text-slate-400 uppercase tracking-tight mt-1 truncate">
-        {currencySymbol}{Math.round(spent).toLocaleString()}
-      </p>
-    </button>
-  );
-};
-
-const SubCategoryCard: React.FC<{ item: BudgetItem; spent: number; currencySymbol: string; isYTD: boolean; monthsElapsed: number; onEdit: (item: BudgetItem) => void; isCompact: boolean }> = ({ item, spent, currencySymbol, isYTD, monthsElapsed, onEdit, isCompact }) => {
-    const budgetAmount = isYTD ? item.amount * monthsElapsed : item.amount;
-    const percentage = budgetAmount > 0 ? (spent / budgetAmount) * 100 : 0;
-    const isOver = spent > budgetAmount;
-    const color = CATEGORY_COLORS[item.bucket as Category];
-
-    return (
-        <div 
-            onClick={() => { triggerHaptic(); onEdit(item); }}
-            className={`bg-brand-surface ${isCompact ? 'p-2 rounded-xl' : 'p-2.5 rounded-2xl'} border border-brand-border shadow-sm flex flex-col gap-1.5 transition-all active:scale-[0.98] cursor-pointer group`}
-        >
-            <div className="flex justify-between items-start">
-                <div className="flex items-center gap-2">
-                    <div className={`${isCompact ? 'p-1' : 'p-1.5'} rounded-lg bg-brand-accent/20 text-slate-500 border border-white/5`} style={{ color }}>
-                        <Layers size={isCompact ? 10 : 12} />
-                    </div>
-                    <div className="min-w-0">
-                        <h4 className={`${isCompact ? 'text-[9px]' : 'text-[10px]'} font-black text-brand-text uppercase leading-none truncate w-32`}>{item.name}</h4>
-                        <p className={`${isCompact ? 'text-[6px]' : 'text-[7px]'} font-bold text-slate-500 uppercase tracking-widest mt-0.5`}>{item.category} • {item.subCategory || 'General'}</p>
-                    </div>
-                </div>
-                <div className="flex items-start gap-2">
-                  <div className="text-right">
-                      <p className={`${isCompact ? 'text-[9px]' : 'text-[10px]'} font-black ${isOver ? 'text-rose-500' : 'text-brand-text'}`}>
-                          {currencySymbol}{Math.round(spent).toLocaleString()}
-                      </p>
-                      <p className={`${isCompact ? 'text-[6px]' : 'text-[7px]'} font-bold text-slate-500 uppercase tracking-widest`}>
-                        of {currencySymbol}{Math.round(budgetAmount).toLocaleString()} ({Math.round(percentage)}%)
-                      </p>
-                  </div>
-                  <div className="opacity-0 group-hover:opacity-100 transition-opacity p-1 text-slate-600">
-                    <Edit2 size={isCompact ? 8 : 10} />
-                  </div>
-                </div>
-            </div>
-            <div className="relative">
-                <div className="w-full h-1 bg-brand-accent/10 rounded-full overflow-hidden flex border border-white/5">
-                    <div 
-                        className={`h-full transition-all duration-1000 ${isOver ? 'bg-rose-500' : ''}`}
-                        style={{ width: `${Math.min(100, percentage)}%`, backgroundColor: isOver ? undefined : color }}
-                    />
-                </div>
-            </div>
+      <div className="flex items-center gap-1.5 mb-1.5">
+        <div className={`p-1 rounded-md bg-opacity-10`} style={{ backgroundColor: `${color}20`, color }}>
+          <Icon size={12} />
         </div>
-    );
-};
-
-const RecurringCard: React.FC<{ item: RecurringItem; currencySymbol: string; onEdit: (item: RecurringItem) => void; isCompact: boolean }> = ({ item, currencySymbol, onEdit, isCompact }) => {
-  const color = CATEGORY_COLORS[item.bucket];
-  
-  return (
-    <div 
-      onClick={() => { triggerHaptic(); onEdit(item); }}
-      className={`bg-brand-surface ${isCompact ? 'p-2.5 rounded-xl' : 'p-4 rounded-2xl'} border border-brand-border shadow-sm flex items-center justify-between group active:scale-[0.98] transition-all cursor-pointer`}
-    >
-      <div className="flex items-center gap-3">
-        <div className={`p-2 bg-brand-accent/20 border border-white/5 ${isCompact ? 'rounded-lg' : 'rounded-xl'}`} style={{ color }}>
-          <RefreshCw size={isCompact ? 14 : 16} />
-        </div>
-        <div>
-          <h4 className={`${isCompact ? 'text-[10px]' : 'text-[11px]'} font-black text-brand-text uppercase tracking-tight leading-none mb-1`}>{item.merchant || item.note}</h4>
-          <div className="flex items-center gap-1.5">
-            <span className="text-[7px] font-bold text-slate-500 uppercase tracking-widest flex items-center gap-1">
-              <Calendar size={8} /> {item.frequency}
-            </span>
-            <span className="text-[7px] font-black text-indigo-400 uppercase tracking-widest bg-indigo-500/10 px-1 rounded flex items-center gap-1">
-              <Clock size={8} /> Next: {new Date(item.nextDueDate).toLocaleDateString(undefined, { month: 'short', day: 'numeric' }).toUpperCase()}
-            </span>
+        <span className="text-[7px] font-black uppercase tracking-widest text-slate-500">{label}</span>
+      </div>
+      <div className="flex flex-col">
+        <span className={`${isCompact ? 'text-xs' : 'text-sm'} font-black text-brand-text truncate`}>
+          {currencySymbol}{Math.round(spent).toLocaleString()}
+        </span>
+        <div className="flex items-center gap-1 mt-0.5">
+          <div className="flex-1 h-0.5 bg-slate-200 dark:bg-slate-800 rounded-full overflow-hidden">
+            <div className="h-full rounded-full transition-all duration-1000" style={{ width: `${Math.min(100, percentage)}%`, backgroundColor: color }} />
           </div>
+          <span className="text-[6px] font-black text-slate-400">{Math.round(percentage)}%</span>
         </div>
       </div>
-      <div className="flex items-center gap-3">
-        <div className="text-right">
-          <p className={`${isCompact ? 'text-[11px]' : 'text-[12px]'} font-black text-brand-text`}>
-            {currencySymbol}{Math.round(item.amount).toLocaleString()}
-          </p>
-          <p className="text-[6px] font-bold text-slate-500 uppercase tracking-widest mt-0.5">EST. OUTFLOW</p>
-        </div>
-        <ChevronRight size={14} className="text-slate-700 group-hover:text-white transition-colors" />
-      </div>
-    </div>
+    </button>
   );
 };
 
@@ -157,258 +77,272 @@ interface BudgetPlannerProps {
   onUpdateBudget: (id: string, updates: Partial<BudgetItem>) => void;
   onDeleteBudget: (id: string) => void;
   onPayBill: (bill: Bill) => void;
-  onDeleteBill: (id: string) => void;
   onEditBill: (bill: Bill) => void;
-  onEditExpense: (expense: Expense) => void;
-  onEditRecurring: (item: RecurringItem) => void;
+  onDeleteBill: (id: string) => void;
   onAddBillClick: () => void;
   onAddRecurringClick: () => void;
+  onEditRecurring: (item: RecurringItem) => void;
+  onEditExpense: (expense: Expense) => void;
   viewDate: Date;
 }
 
-const BudgetPlanner: React.FC<BudgetPlannerProps> = ({
-  budgetItems, expenses, bills, wealthItems, settings, recurringItems,
-  onAddBudget, onEditBudget, onPayBill, onEditBill, onAddBillClick, 
-  onAddRecurringClick, onEditRecurring, viewDate
+const BudgetPlanner: React.FC<BudgetPlannerProps> = ({ 
+  budgetItems, recurringItems, expenses, bills, wealthItems, settings,
+  onAddBudget, onEditBudget, onPayBill, onEditBill, onDeleteBill, onAddBillClick,
+  onAddRecurringClick, onEditRecurring, onEditExpense, viewDate
 }) => {
-  const [activeView, setActiveView] = useState<'Budgets' | 'Bills' | 'Recurring'>('Budgets');
-  const [selectedCategory, setSelectedCategory] = useState<Category | null>(null);
-  const [period, setPeriod] = useState<'Monthly' | 'YTD'>('Monthly');
+  const [activeTab, setActiveTab] = useState<'Goals' | 'Bills' | 'Recurring'>('Goals');
+  const [activeBucket, setActiveBucket] = useState<Category>('Needs');
   const currencySymbol = getCurrencySymbol(settings.currency);
   const isCompact = settings.density === 'Compact';
 
-  const handleCategoryToggle = (cat: Category) => {
-    triggerHaptic();
-    setSelectedCategory(prev => prev === cat ? null : cat);
-  };
+  const m = viewDate.getMonth();
+  const y = viewDate.getFullYear();
 
-  const stats = useMemo(() => {
-    const isYTD = period === 'YTD';
-    const m = viewDate.getMonth();
-    const y = viewDate.getFullYear();
-    const monthsElapsed = m + 1;
-    const curExps = expenses.filter(e => {
+  const bucketStats = useMemo(() => {
+    const buckets: Category[] = ['Needs', 'Wants', 'Savings', 'Avoids'];
+    const currentExps = expenses.filter(e => {
       const d = new Date(e.date);
-      if (isYTD) return d.getFullYear() === y && d.getMonth() <= m && e.subCategory !== 'Transfer';
-      return d.getMonth() === m && d.getFullYear() === y && e.subCategory !== 'Transfer';
+      return d.getMonth() === m && d.getFullYear() === y;
     });
-    
-    const categories: Category[] = ['Needs', 'Wants', 'Savings'];
-    const utilByCat = categories.reduce((acc, cat) => {
-      let catPlanned = budgetItems.filter(i => i.bucket === cat).reduce((s, i) => s + i.amount, 0);
-      if (isYTD) catPlanned *= monthsElapsed;
-      const catRealized = curExps.filter(e => e.category === cat).reduce((s, e) => s + e.amount, 0);
-      acc[cat] = { planned: catPlanned, realized: catRealized, percentage: catPlanned > 0 ? (catRealized / catPlanned) * 100 : 0 };
-      return acc;
-    }, {} as Record<string, { planned: number, realized: number, percentage: number }>);
 
-    const subCatUsage = budgetItems.reduce((acc, item) => {
-        const spent = curExps.filter(e => {
-            const isMatchingBucket = e.category === item.bucket;
-            if (!isMatchingBucket) return false;
-            
-            const isMatchingCategory = e.mainCategory === item.category;
-            const subMatch = item.subCategory && (item.subCategory === 'General' || e.subCategory === item.subCategory);
-            const nameMatch = e.merchant?.toLowerCase().includes(item.name.toLowerCase()) || 
-                             e.note?.toLowerCase().includes(item.name.toLowerCase());
-            
-            return (isMatchingCategory && subMatch) || nameMatch;
-        }).reduce((s, e) => s + e.amount, 0);
-        
-        acc[item.id] = spent;
-        return acc;
-    }, {} as Record<string, number>);
-
-    const totalPendingBills = bills.reduce((sum, b) => sum + b.amount, 0);
-    const totalRecurringMonthly = recurringItems.reduce((sum, r) => sum + r.amount, 0);
-    return { utilByCat, subCatUsage, totalPendingBills, totalRecurringMonthly };
-  }, [budgetItems, expenses, viewDate, period, bills, recurringItems]);
+    return buckets.map(cat => {
+      const spent = currentExps.filter(e => e.category === cat).reduce((sum, e) => sum + e.amount, 0);
+      const planned = budgetItems.filter(b => b.bucket === cat).reduce((sum, b) => sum + b.amount, 0);
+      return {
+        name: cat,
+        spent,
+        planned,
+        percentage: planned > 0 ? (spent / planned) * 100 : 0,
+        color: CATEGORY_COLORS[cat],
+        icon: cat === 'Needs' ? Shield : cat === 'Wants' ? Star : cat === 'Savings' ? Trophy : AlertCircle
+      };
+    });
+  }, [expenses, budgetItems, m, y]);
 
   const filteredBudgetItems = useMemo(() => {
-    if (!selectedCategory) return budgetItems;
-    return budgetItems.filter(item => item.bucket === selectedCategory);
-  }, [budgetItems, selectedCategory]);
+    return budgetItems.filter(b => b.bucket === activeBucket);
+  }, [budgetItems, activeBucket]);
+
+  const pendingBills = useMemo(() => {
+    return bills.filter(b => !b.isPaid).sort((a, b) => new Date(a.dueDate).getTime() - new Date(b.dueDate).getTime());
+  }, [bills]);
 
   return (
-    <div className={`pb-32 pt-0 animate-slide-up flex flex-col ${isCompact ? 'gap-1.5' : 'gap-3'}`}>
-      <div className="bg-gradient-to-r from-brand-primary to-brand-secondary px-5 py-3 rounded-xl mb-1 mx-0.5 shadow-md h-[50px] flex items-center justify-between border border-white/5">
-        <div className="flex flex-col">
-          <h1 className="text-[14px] font-black text-brand-headerText uppercase leading-none tracking-tight">Budget Planner</h1>
-          <p className="text-[7px] font-bold text-brand-headerText/50 uppercase tracking-[0.2em] mt-0.5">Tactical Protocol</p>
+    <div className="pb-32 pt-0 animate-slide-up flex flex-col min-h-full">
+      <div className="bg-gradient-to-r from-brand-primary to-brand-secondary px-3 py-2 rounded-xl mb-1.5 mx-0.5 shadow-md h-[50px] flex items-center justify-between shrink-0 border border-white/5">
+        <div className="flex flex-col px-1">
+          <h1 className="text-[14px] font-black text-brand-headerText uppercase leading-none tracking-tight">Planner</h1>
+          <p className="text-[7px] font-bold text-brand-headerText/50 uppercase tracking-[0.2em] mt-1">Protocols & Goals</p>
         </div>
-        <button 
-          onClick={() => { 
-            triggerHaptic(); 
-            if (activeView === 'Bills') onAddBillClick();
-            else if (activeView === 'Recurring') onAddRecurringClick();
-            else onAddBudget(); 
-          }}
-          className="p-2 bg-white/10 text-brand-headerText rounded-xl active:scale-95 transition-all border border-white/5"
-        >
-          <Plus size={18} strokeWidth={3} />
-        </button>
+        <div className="flex items-center bg-white/10 rounded-xl p-0.5">
+           {(['Goals', 'Bills', 'Recurring'] as const).map(tab => (
+             <button
+               key={tab}
+               onClick={() => { triggerHaptic(); setActiveTab(tab); }}
+               className={`px-3 py-1.5 rounded-lg text-[8px] font-black uppercase tracking-widest transition-all ${activeTab === tab ? 'bg-white text-slate-950 shadow-sm' : 'text-brand-headerText opacity-60'}`}
+             >
+               {tab}
+             </button>
+           ))}
+        </div>
       </div>
 
-      <div className="flex glass p-1 rounded-2xl mb-1 mx-0.5 border-white/5 shadow-sm h-[44px] items-center bg-brand-accent/10 shrink-0">
-        <button onClick={() => setActiveView('Budgets')} className={`flex-1 h-full flex items-center justify-center gap-1.5 text-[8px] font-black uppercase rounded-xl transition-all ${activeView === 'Budgets' ? 'bg-brand-surface/60 text-brand-text shadow-sm' : 'text-slate-500'}`}>
-          <LayoutGrid size={12} /> Goals
-        </button>
-        <button onClick={() => setActiveView('Bills')} className={`flex-1 h-full flex items-center justify-center gap-1.5 text-[8px] font-black uppercase rounded-xl transition-all ${activeView === 'Bills' ? 'bg-brand-surface/60 text-brand-text shadow-sm' : 'text-slate-500'}`}>
-          <List size={12} /> Bills
-        </button>
-        <button onClick={() => setActiveView('Recurring')} className={`flex-1 h-full flex items-center justify-center gap-1.5 text-[8px] font-black uppercase rounded-xl transition-all ${activeView === 'Recurring' ? 'bg-brand-surface/60 text-brand-text shadow-sm' : 'text-slate-500'}`}>
-          <RefreshCw size={12} /> Cycle
-        </button>
-      </div>
+      {activeTab === 'Goals' && (
+        <div className="px-0.5 space-y-3">
+          <div className="flex gap-1.5">
+             {bucketStats.map(stat => (
+               <CategoryStatCard 
+                 key={stat.name}
+                 label={stat.name}
+                 spent={stat.spent}
+                 percentage={stat.percentage}
+                 color={stat.color}
+                 icon={stat.icon}
+                 currencySymbol={currencySymbol}
+                 isActive={activeBucket === stat.name}
+                 onClick={() => { triggerHaptic(); setActiveBucket(stat.name); }}
+                 isCompact={isCompact}
+               />
+             ))}
+          </div>
 
-      <div className={`px-0.5 ${isCompact ? 'space-y-1.5' : 'space-y-3'}`}>
-        {activeView === 'Budgets' ? (
-          <>
-            <section className={`bg-brand-surface ${isCompact ? 'p-3 rounded-2xl' : 'p-4 rounded-[24px]'} border border-brand-border shadow-sm`}>
-              <div className="flex flex-col gap-3">
-                <div className="flex items-center justify-between">
-                   <div className="bg-brand-accent/20 p-0.5 rounded-lg flex border border-white/5">
-                      {(['Monthly', 'YTD'] as const).map(p => (
-                        <button key={p} onClick={() => { triggerHaptic(); setPeriod(p); }} className={`px-3 py-1 rounded-md text-[7px] font-black uppercase tracking-widest transition-all ${period === p ? 'bg-brand-surface/60 text-brand-text shadow-sm' : 'text-slate-500'}`}>
-                          {p}
-                        </button>
-                      ))}
-                   </div>
+          <div className="bg-brand-surface border border-brand-border rounded-[28px] overflow-hidden shadow-sm">
+             <div className="px-5 py-4 border-b border-brand-border flex justify-between items-center bg-brand-accent/30">
+                <div className="flex items-center gap-2">
+                   <Target size={14} className="text-brand-primary" />
+                   <h3 className="text-[10px] font-black uppercase tracking-widest text-brand-text">{activeBucket} Milestones</h3>
                 </div>
-                <div className={`flex ${isCompact ? 'gap-1' : 'gap-1.5'}`}>
-                  {(['Needs', 'Wants', 'Savings'] as Category[]).map(cat => (
-                    <CategoryStatCard 
-                      key={cat} label={cat} percentage={stats.utilByCat[cat].percentage} spent={stats.utilByCat[cat].realized} color={CATEGORY_COLORS[cat]} 
-                      icon={cat === 'Needs' ? Shield : cat === 'Wants' ? Star : Trophy} currencySymbol={currencySymbol} 
-                      isActive={selectedCategory === cat} onClick={() => handleCategoryToggle(cat)} isCompact={isCompact}
-                    />
-                  ))}
-                </div>
-              </div>
-            </section>
-            <div className={`space-y-1.5 ${isCompact ? 'px-0' : 'px-0'}`}>
-               {filteredBudgetItems.length === 0 ? (
-                 <div className="py-20 text-center flex flex-col items-center justify-center opacity-20">
-                    <Target size={40} strokeWidth={1} />
-                    <p className="text-[10px] font-black uppercase tracking-[0.4em] mt-4">No goals defined</p>
-                 </div>
-               ) : (
-                 filteredBudgetItems.map(item => (
-                   <SubCategoryCard key={item.id} item={item} spent={stats.subCatUsage[item.id] || 0} currencySymbol={currencySymbol} isYTD={period === 'YTD'} monthsElapsed={new Date(viewDate).getMonth() + 1} onEdit={onEditBudget} isCompact={isCompact} />
-                 ))
-               )}
-            </div>
-          </>
-        ) : activeView === 'Bills' ? (
-          <div className={`space-y-3 ${isCompact ? 'px-0' : 'px-0'}`}>
-             <div className={`bg-brand-surface ${isCompact ? 'p-4 rounded-[24px]' : 'p-6 rounded-[32px]'} border border-brand-border shadow-lg relative overflow-hidden group`}>
-               <div className="absolute top-0 right-0 p-4 opacity-5 rotate-12 group-hover:scale-110 transition-transform">
-                  <ReceiptText size={isCompact ? 60 : 80} />
-               </div>
-               <div className="relative z-10 flex flex-col gap-1">
-                  <div className="flex items-center gap-2 text-indigo-400 mb-1">
-                    <Coins size={14} />
-                    <span className="text-[8px] font-black uppercase tracking-[0.2em]">Outstanding Dues</span>
-                  </div>
-                  <h2 className={`${isCompact ? 'text-2xl' : 'text-3xl'} font-black text-brand-text tracking-tighter leading-none`}>
-                    <span className="text-sm opacity-40 mr-1">{currencySymbol}</span>
-                    {stats.totalPendingBills.toLocaleString()}
-                  </h2>
-                  <p className="text-[7px] font-bold text-slate-500 uppercase tracking-widest mt-1">
-                    {bills.length} Pending Signals
-                  </p>
-               </div>
+                <button 
+                  onClick={() => { triggerHaptic(); onAddBudget(); }}
+                  className="p-1.5 bg-brand-accentUi text-brand-bg rounded-lg shadow-lg active:scale-90 transition-all"
+                >
+                   <Plus size={14} strokeWidth={3} />
+                </button>
              </div>
-
-             <div className="space-y-1.5">
-                {bills.length === 0 ? (
-                  <div className="py-20 text-center flex flex-col items-center justify-center opacity-20">
-                     <AlertCircle size={40} strokeWidth={1} />
-                     <p className="text-[10px] font-black uppercase tracking-[0.4em] mt-4">Registry Clear</p>
+             <div className="divide-y divide-brand-border min-h-[200px]">
+                {filteredBudgetItems.length === 0 ? (
+                  <div className="flex flex-col items-center justify-center py-16 opacity-30">
+                     <Activity size={32} strokeWidth={1} />
+                     <p className="text-[9px] font-black uppercase tracking-widest mt-4">Zero {activeBucket} nodes</p>
                   </div>
                 ) : (
-                  bills.map(bill => {
-                    const account = wealthItems.find(w => w.id === bill.accountId);
+                  filteredBudgetItems.map(item => {
+                    const spent = expenses
+                      .filter(e => {
+                        const d = new Date(e.date);
+                        return d.getMonth() === m && d.getFullYear() === y && 
+                               (e.category === item.bucket && e.mainCategory === item.category);
+                      })
+                      .reduce((sum, e) => sum + e.amount, 0);
+                    const progress = item.amount > 0 ? (spent / item.amount) * 100 : 0;
+                    
                     return (
                       <div 
-                        key={bill.id}
-                        onClick={() => { triggerHaptic(); onEditBill(bill); }}
-                        className={`bg-brand-surface ${isCompact ? 'p-2.5 rounded-xl' : 'p-4 rounded-2xl'} border border-brand-border shadow-sm flex items-center justify-between group active:scale-[0.98] transition-all cursor-pointer`}
+                        key={item.id} 
+                        className="p-4 flex items-center justify-between group hover:bg-brand-accent/30 transition-colors cursor-pointer"
+                        onClick={() => onEditBudget(item)}
                       >
-                        <div className="flex items-center gap-3">
-                          <div className={`p-2 bg-rose-500/10 text-rose-500 ${isCompact ? 'rounded-lg' : 'rounded-xl'}`}>
-                            <ReceiptText size={isCompact ? 14 : 16} />
-                          </div>
-                          <div>
-                            <h4 className={`${isCompact ? 'text-[10px]' : 'text-[11px]'} font-black text-brand-text uppercase tracking-tight leading-none mb-1`}>{bill.merchant}</h4>
-                            <div className="flex items-center gap-1.5">
-                              <span className="text-[7px] font-bold text-slate-500 uppercase tracking-widest">
-                                Due {new Date(bill.dueDate).toLocaleDateString(undefined, { month: 'short', day: 'numeric' }).toUpperCase()}
-                              </span>
-                              {account && !isCompact && (
-                                <span className="text-[7px] font-black text-indigo-400 uppercase tracking-widest bg-indigo-500/10 px-1 rounded">
-                                  {account.alias || account.name}
-                                </span>
-                              )}
+                         <div className="flex-1 min-w-0 mr-4">
+                            <div className="flex justify-between items-end mb-2">
+                               <h4 className="text-[11px] font-black uppercase text-brand-text truncate">{item.name}</h4>
+                               <span className="text-[9px] font-black text-brand-text">
+                                 {currencySymbol}{Math.round(spent).toLocaleString()} / <span className="opacity-40">{Math.round(item.amount).toLocaleString()}</span>
+                               </span>
                             </div>
-                          </div>
-                        </div>
-                        <div className="flex items-center gap-3">
-                          <div className="text-right">
-                            <p className={`${isCompact ? 'text-[11px]' : 'text-[12px]'} font-black text-brand-text`}>
-                              {currencySymbol}{Math.round(bill.amount).toLocaleString()}
-                            </p>
-                            <button 
-                              onClick={(e) => { e.stopPropagation(); onPayBill(bill); }}
-                              className="text-[7px] font-black text-indigo-500 uppercase tracking-widest mt-1 hover:underline"
-                            >
-                              Settle
-                            </button>
-                          </div>
-                          <ChevronRight size={14} className="text-slate-700 group-hover:text-white transition-colors" />
-                        </div>
+                            <div className="w-full h-1 bg-brand-accent rounded-full overflow-hidden">
+                               <div className={`h-full rounded-full transition-all duration-1000 ${progress > 100 ? 'bg-rose-500' : 'bg-brand-primary'}`} style={{ width: `${Math.min(100, progress)}%` }} />
+                            </div>
+                         </div>
+                         <button className="p-2 text-slate-600 hover:text-brand-primary opacity-0 group-hover:opacity-100 transition-all">
+                            <Edit2 size={14} />
+                         </button>
                       </div>
                     );
                   })
                 )}
              </div>
           </div>
-        ) : (
-          <div className={`space-y-3 ${isCompact ? 'px-0' : 'px-0'}`}>
-             <div className={`bg-brand-surface ${isCompact ? 'p-4 rounded-[24px]' : 'p-6 rounded-[32px]'} border border-brand-border shadow-lg relative overflow-hidden group`}>
-               <div className="absolute top-0 right-0 p-4 opacity-5 rotate-12 group-hover:scale-110 transition-transform">
-                  <RefreshCw size={isCompact ? 60 : 80} />
-               </div>
-               <div className="relative z-10 flex flex-col gap-1">
-                  <div className="flex items-center gap-2 text-emerald-400 mb-1">
-                    <Clock size={14} />
-                    <span className="text-[8px] font-black uppercase tracking-[0.2em]">Automated Outflows</span>
-                  </div>
-                  <h2 className={`${isCompact ? 'text-2xl' : 'text-3xl'} font-black text-brand-text tracking-tighter leading-none`}>
-                    <span className="text-sm opacity-40 mr-1">{currencySymbol}</span>
-                    {stats.totalRecurringMonthly.toLocaleString()}
-                  </h2>
-                  <p className="text-[7px] font-bold text-slate-500 uppercase tracking-widest mt-1">
-                    ESTIMATED MONTHLY LOAD
-                  </p>
-               </div>
-             </div>
+        </div>
+      )}
 
-             <div className="space-y-1.5">
-                {recurringItems.length === 0 ? (
-                  <div className="py-20 text-center flex flex-col items-center justify-center opacity-20">
-                     <RefreshCw size={40} strokeWidth={1} />
-                     <p className="text-[10px] font-black uppercase tracking-[0.4em] mt-4">No Recurring Signals</p>
+      {activeTab === 'Bills' && (
+        <div className="px-0.5 space-y-3">
+          <div className="bg-brand-surface border border-brand-border rounded-[28px] overflow-hidden shadow-sm">
+             <div className="px-5 py-4 border-b border-brand-border flex justify-between items-center bg-brand-accent/30">
+                <div className="flex items-center gap-2">
+                   <ReceiptText size={14} className="text-indigo-400" />
+                   <h3 className="text-[10px] font-black uppercase tracking-widest text-brand-text">Outstanding Obligations</h3>
+                </div>
+                <button 
+                  onClick={() => { triggerHaptic(); onAddBillClick(); }}
+                  className="p-1.5 bg-brand-accentUi text-brand-bg rounded-lg shadow-lg active:scale-90 transition-all"
+                >
+                   <Plus size={14} strokeWidth={3} />
+                </button>
+             </div>
+             <div className="divide-y divide-brand-border min-h-[300px]">
+                {pendingBills.length === 0 ? (
+                  <div className="flex flex-col items-center justify-center py-20 opacity-30">
+                     <AlertCircle size={32} strokeWidth={1} />
+                     <p className="text-[9px] font-black uppercase tracking-widest mt-4">Registry Clear</p>
                   </div>
                 ) : (
-                  recurringItems.map(item => (
-                    <RecurringCard key={item.id} item={item} currencySymbol={currencySymbol} onEdit={onEditRecurring} isCompact={isCompact} />
-                  ))
+                  pendingBills.map(bill => {
+                    const diffDays = Math.ceil((new Date(bill.dueDate).getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24));
+                    const isOverdue = diffDays < 0;
+                    
+                    return (
+                      <div key={bill.id} className="p-4 flex items-center justify-between group hover:bg-brand-accent/30 transition-colors">
+                         <div className="flex items-center gap-3 min-w-0 flex-1">
+                            <button 
+                              onClick={() => { triggerHaptic(); onPayBill(bill); }}
+                              className={`w-10 h-10 rounded-xl flex items-center justify-center transition-all ${isOverdue ? 'bg-rose-500/10 text-rose-500 animate-pulse' : 'bg-brand-accent text-slate-500 hover:bg-indigo-600 hover:text-white'}`}
+                            >
+                               <Coins size={18} />
+                            </button>
+                            <div className="min-w-0 flex-1 cursor-pointer" onClick={() => onEditBill(bill)}>
+                               <div className="flex items-center gap-2">
+                                  <h4 className="text-[11px] font-black uppercase text-brand-text truncate leading-tight">{bill.merchant}</h4>
+                                  <span className={`text-[7px] font-black uppercase tracking-widest px-1.5 py-0.5 rounded ${isOverdue ? 'bg-rose-500 text-white' : 'bg-brand-accent text-slate-500'}`}>
+                                    {isOverdue ? 'Overdue' : `T-${diffDays}d`}
+                                  </span>
+                               </div>
+                               <div className="flex items-center gap-1.5 mt-1">
+                                  <span className="text-[7px] font-black uppercase tracking-widest text-slate-500">{bill.mainCategory || 'UNCATEGORIZED'}</span>
+                                  <span className="text-[7px] text-slate-300 opacity-30">•</span>
+                                  <span className="text-[7px] font-bold text-slate-400 uppercase tracking-widest">{bill.subCategory || 'GENERAL'}</span>
+                               </div>
+                            </div>
+                         </div>
+                         <div className="text-right flex items-center gap-3 shrink-0 ml-2">
+                            <div>
+                               <p className="text-[13px] font-black text-brand-text tracking-tight">{currencySymbol}{Math.round(bill.amount).toLocaleString()}</p>
+                               <p className="text-[7px] font-bold text-slate-500 uppercase mt-0.5 tracking-widest">
+                                 {new Date(bill.dueDate).toLocaleDateString(undefined, { month: 'short', day: 'numeric' }).toUpperCase()}
+                               </p>
+                            </div>
+                            <button 
+                              onClick={() => { triggerHaptic(); onEditBill(bill); }}
+                              className="p-2 text-slate-600 hover:text-brand-primary active:scale-90 transition-all opacity-0 group-hover:opacity-100"
+                            >
+                               <Edit2 size={14} />
+                            </button>
+                         </div>
+                      </div>
+                    );
+                  })
                 )}
              </div>
           </div>
-        )}
-      </div>
+        </div>
+      )}
+
+      {activeTab === 'Recurring' && (
+        <div className="px-0.5 space-y-3">
+           <div className="bg-brand-surface border border-brand-border rounded-[28px] overflow-hidden shadow-sm">
+             <div className="px-5 py-4 border-b border-brand-border flex justify-between items-center bg-brand-accent/30">
+                <div className="flex items-center gap-2">
+                   <RefreshCw size={14} className="text-emerald-500" />
+                   <h3 className="text-[10px] font-black uppercase tracking-widest text-brand-text">Active Subscriptions</h3>
+                </div>
+                <button 
+                  onClick={() => { triggerHaptic(); onAddRecurringClick(); }}
+                  className="p-1.5 bg-brand-accentUi text-brand-bg rounded-lg shadow-lg active:scale-90 transition-all"
+                >
+                   <Plus size={14} strokeWidth={3} />
+                </button>
+             </div>
+             <div className="divide-y divide-brand-border min-h-[300px]">
+                {recurringItems.length === 0 ? (
+                  <div className="flex flex-col items-center justify-center py-20 opacity-30">
+                     <Clock size={32} strokeWidth={1} />
+                     <p className="text-[9px] font-black uppercase tracking-widest mt-4">No recurring flows</p>
+                  </div>
+                ) : (
+                  recurringItems.map(item => (
+                    <div key={item.id} className="p-4 flex items-center justify-between group hover:bg-brand-accent/30 transition-colors" onClick={() => onEditRecurring(item)}>
+                       <div className="flex items-center gap-3">
+                          <div className="p-2.5 rounded-xl bg-emerald-500/10 text-emerald-500"><Clock size={16} /></div>
+                          <div>
+                             <h4 className="text-[11px] font-black uppercase text-brand-text leading-tight">{item.merchant || item.note}</h4>
+                             <p className="text-[7px] font-bold text-slate-500 uppercase tracking-widest mt-1">{item.frequency} • {item.bucket}</p>
+                          </div>
+                       </div>
+                       <div className="text-right flex items-center gap-3">
+                          <div>
+                             <p className="text-[12px] font-black text-brand-text tracking-tight">{currencySymbol}{Math.round(item.amount).toLocaleString()}</p>
+                             <p className="text-[7px] font-bold text-slate-500 uppercase mt-0.5 tracking-widest">Next: {new Date(item.nextDueDate).toLocaleDateString(undefined, { month: 'short', day: 'numeric' }).toUpperCase()}</p>
+                          </div>
+                          <ChevronRight size={16} className="text-slate-700 group-hover:text-brand-primary transition-colors" />
+                       </div>
+                    </div>
+                  ))
+                )}
+             </div>
+           </div>
+        </div>
+      )}
     </div>
   );
 };

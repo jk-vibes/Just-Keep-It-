@@ -30,61 +30,78 @@ const AddTransfer: React.FC<AddTransferProps> = ({ settings, wealthItems, onTran
     onCancel();
   };
 
-  const selectClasses = "w-full bg-brand-accent p-2 rounded-xl text-[10px] font-black outline-none border border-brand-border text-brand-text appearance-none cursor-pointer focus:border-brand-primary/30 transition-all truncate text-left";
+  const menuButtonClass = "w-full bg-brand-accent p-2.5 rounded-xl text-[10px] font-black outline-none border border-brand-border text-brand-text appearance-none cursor-pointer focus:border-brand-primary/30 transition-all truncate text-left shadow-inner";
   const labelClass = "text-[7px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest ml-1 mb-1 block";
 
   return (
     <div className="fixed inset-0 z-[200] bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 overflow-hidden">
       <div className="bg-brand-surface w-full max-w-sm rounded-[28px] shadow-2xl flex flex-col border border-brand-border overflow-hidden animate-slide-up max-h-[90vh]">
-        <div className="flex items-center justify-between px-4 py-2 border-b border-brand-border shrink-0">
-          <div className="flex items-center gap-2">
-            <div className="p-1.5 bg-indigo-500 text-white rounded-lg shadow-md">
-              <ArrowRightLeft size={14} />
+        
+        {/* DESIGNER GRADIENT HEADER - Standardized Style */}
+        <div className="bg-gradient-to-r from-brand-primary to-brand-secondary px-5 py-2.5 flex justify-between items-center shrink-0 shadow-lg border-b border-white/5">
+          <div className="flex items-center gap-2.5">
+            <div className="p-1.5 bg-white/20 backdrop-blur-md text-white rounded-lg shadow-inner">
+              <ArrowRightLeft size={16} strokeWidth={2.5} />
             </div>
-            <h3 className="text-[10px] font-black uppercase tracking-[0.1em] text-brand-text">Transfer Money</h3>
+            <div>
+              <h3 className="text-[13px] font-black uppercase tracking-tight text-white leading-none">Internal Transfer</h3>
+              <p className="text-[6px] font-black text-white/50 uppercase tracking-[0.2em] mt-0.5">Capital Rebalancing</p>
+            </div>
           </div>
-          <button onClick={onCancel} className="p-1.5 bg-slate-100 dark:bg-slate-800 rounded-full text-slate-400 active:scale-90 transition-all"><X size={16} /></button>
+          <button onClick={onCancel} className="p-1.5 bg-white/10 hover:bg-white/20 rounded-full text-white transition-all active:scale-90 border border-white/5"><X size={16} strokeWidth={3} /></button>
         </div>
 
-        <div className="flex-1 overflow-y-auto no-scrollbar p-4 space-y-4 pb-8">
-          <div className="text-center py-1">
-             <div className="relative border-b-2 border-brand-border pb-1 mx-auto max-w-[180px]">
-                <span className="absolute left-0 top-1/2 -translate-y-1/2 text-lg font-black text-slate-300 dark:text-slate-600">{currencySymbol}</span>
+        <div className="flex-1 overflow-y-auto no-scrollbar p-5 space-y-5 pb-8">
+          
+          {/* LEFT-ALIGNED AMOUNT FIELD */}
+          <div className="space-y-1.5">
+            <span className={labelClass}>Transfer Amount</span>
+            <div className="flex items-center gap-3 bg-brand-accent p-3 rounded-[22px] border border-brand-border shadow-inner group">
+              <div className="flex items-baseline gap-1">
+                <span className="text-sm font-black text-slate-400 group-focus-within:text-brand-primary transition-colors">{currencySymbol}</span>
                 <input
+                  autoFocus={!isEditing}
                   type="number"
                   value={amount}
                   onChange={(e) => setAmount(e.target.value)}
                   placeholder="0"
-                  className="w-full pl-6 text-3xl font-black border-none outline-none focus:ring-0 bg-transparent text-brand-text tracking-tighter text-center"
+                  className="w-full text-2xl font-black border-none outline-none focus:ring-0 bg-transparent text-brand-text tracking-tighter"
                 />
-             </div>
+              </div>
+            </div>
           </div>
 
           <div className="grid grid-cols-2 gap-3">
              <div className="space-y-0.5">
-                <span className={labelClass}>From Account</span>
-                <select value={fromAccountId} onChange={(e) => setFromAccountId(e.target.value)} className={selectClasses}>
-                    <option value="">Source...</option>
-                    {liquidAccounts.map(acc => <option key={acc.id} value={acc.id}>{acc.alias || acc.name}</option>)}
-                </select>
+                <span className={labelClass}>Source Ledger</span>
+                <div className="relative">
+                  <select value={fromAccountId} onChange={(e) => setFromAccountId(e.target.value)} className={menuButtonClass}>
+                      <option value="">Select source...</option>
+                      {liquidAccounts.map(acc => <option key={acc.id} value={acc.id}>{acc.alias || acc.name}</option>)}
+                  </select>
+                  <ChevronDown size={10} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
+                </div>
              </div>
              <div className="space-y-0.5">
-                <span className={labelClass}>To Account</span>
-                <select value={toAccountId} onChange={(e) => setToAccountId(e.target.value)} className={selectClasses}>
-                    <option value="">Target...</option>
-                    {liquidAccounts.map(acc => <option key={acc.id} value={acc.id}>{acc.alias || acc.name}</option>)}
-                </select>
+                <span className={labelClass}>Destination Ledger</span>
+                <div className="relative">
+                  <select value={toAccountId} onChange={(e) => setToAccountId(e.target.value)} className={menuButtonClass}>
+                      <option value="">Select target...</option>
+                      {liquidAccounts.map(acc => <option key={acc.id} value={acc.id}>{acc.alias || acc.name}</option>)}
+                  </select>
+                  <ChevronDown size={10} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
+                </div>
              </div>
           </div>
 
           <div className="space-y-0.5">
-            <span className={labelClass}>Date</span>
-            <input type="date" value={date} onChange={(e) => setDate(e.target.value)} className={selectClasses} />
+            <span className={labelClass}>Registry Date</span>
+            <input type="date" value={date} onChange={(e) => setDate(e.target.value)} className={menuButtonClass} />
           </div>
 
           <div className="space-y-0.5">
-            <span className={labelClass}>Notes</span>
-            <input type="text" value={note} onChange={(e) => setNote(e.target.value)} placeholder="Details..." className={selectClasses} />
+            <span className={labelClass}>Context Note</span>
+            <input type="text" value={note} onChange={(e) => setNote(e.target.value)} placeholder="e.g. Fund rebalancing" className={menuButtonClass} />
           </div>
         </div>
 
@@ -92,9 +109,9 @@ const AddTransfer: React.FC<AddTransferProps> = ({ settings, wealthItems, onTran
           <button 
             onClick={handleSubmit} 
             disabled={!amount || !fromAccountId || !toAccountId || fromAccountId === toAccountId} 
-            className="w-full py-3 bg-brand-primary text-brand-headerText font-black rounded-xl text-[10px] uppercase tracking-[0.1em] shadow-lg active:scale-[0.98] transition-all flex items-center justify-center gap-2"
+            className="w-full py-4 bg-brand-primary text-brand-headerText font-black rounded-2xl shadow-xl active:scale-[0.98] transition-all flex items-center justify-center gap-2 uppercase tracking-[0.15em] text-[11px]"
           >
-            <Check size={16} strokeWidth={4} /> {isEditing ? 'Update Transfer' : 'Complete Transfer'}
+            <Check size={18} strokeWidth={4} /> {isEditing ? 'Update Transfer' : 'Authorize Transfer'}
           </button>
         </div>
       </div>

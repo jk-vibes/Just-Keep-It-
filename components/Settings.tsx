@@ -81,6 +81,9 @@ const Settings: React.FC<SettingsProps> = ({
 
   const sectionClass = "bg-brand-surface border border-brand-border rounded-xl mb-2 overflow-hidden shadow-sm";
   const labelClass = "text-[8px] font-black text-slate-500 uppercase tracking-[0.2em] flex items-center gap-2 mb-2 px-2";
+  
+  // Standard non-highlighted button class with border-only active state
+  const vaultButtonClass = "flex flex-col items-center justify-center gap-1.5 p-4 rounded-xl bg-brand-accent border border-brand-border active:border-brand-primary active:scale-95 transition-all group shadow-sm";
 
   return (
     <div className="animate-slide-up relative h-full flex flex-col no-scrollbar overflow-hidden">
@@ -100,7 +103,7 @@ const Settings: React.FC<SettingsProps> = ({
             <h3 className={labelClass}><Tag size={12} /> Category Setup</h3>
             <button 
               onClick={() => { triggerHaptic(); onOpenCategoryManager(); }}
-              className="w-full bg-brand-accent p-4 rounded-xl flex items-center justify-between border border-brand-border active:scale-[0.98] transition-all group"
+              className="w-full bg-brand-accent p-4 rounded-xl flex items-center justify-between border border-brand-border active:border-brand-primary active:scale-[0.98] transition-all group"
             >
               <div className="flex items-center gap-3">
                 <div className="p-2 bg-brand-primary/10 rounded-lg text-brand-primary">
@@ -177,7 +180,7 @@ const Settings: React.FC<SettingsProps> = ({
                     </div>
                   ))}
                </div>
-               <button onClick={saveSplits} className="w-full mt-2 bg-brand-accent text-brand-text py-3 rounded-xl text-[9px] font-black uppercase border border-brand-border active:scale-[0.98] shadow-sm">Lock Protocols</button>
+               <button onClick={saveSplits} className="w-full mt-2 bg-brand-accent text-brand-text py-3 rounded-xl text-[9px] font-black uppercase border border-brand-border active:border-brand-primary active:scale-[0.98] shadow-sm">Lock Protocols</button>
             </div>
           </div>
         </section>
@@ -186,24 +189,24 @@ const Settings: React.FC<SettingsProps> = ({
           <div className="p-4">
             <h3 className={labelClass}><Database size={12} /> Data Vault</h3>
             <div className="grid grid-cols-2 gap-2 mb-2">
-                <button onClick={() => { triggerHaptic(); onLoadMockData(); }} className="flex flex-col items-center justify-center gap-1.5 p-4 rounded-xl bg-brand-accent border border-brand-border active:scale-95 transition-all group shadow-sm">
+                <button onClick={() => { triggerHaptic(); onLoadMockData(); }} className={vaultButtonClass}>
                   <Sparkles size={18} className="text-brand-accentUi group-hover:animate-pulse" />
                   <span className="text-[9px] font-black uppercase text-brand-text">Load Demo</span>
                 </button>
-                <button onClick={() => csvInputRef.current?.click()} className="flex flex-col items-center justify-center gap-1.5 p-4 rounded-xl bg-brand-accent border border-brand-border active:scale-95 transition-all shadow-sm">
+                <button onClick={() => { triggerHaptic(); csvInputRef.current?.click(); }} className={vaultButtonClass}>
                   <Upload size={18} className="text-slate-400" />
                   <span className="text-[9px] font-black uppercase text-brand-text">Import CSV</span>
                 </button>
                 <input type="file" ref={csvInputRef} onChange={handleCSVChange} className="hidden" accept=".csv,.txt,text/csv,text/plain" />
             </div>
             <div className="grid grid-cols-2 gap-2">
-                <button onClick={onExport} className="flex flex-col items-center justify-center gap-1.5 p-4 rounded-xl bg-brand-primary text-brand-headerText border border-brand-border shadow-lg active:scale-[0.98] transition-all">
-                  <Download size={18} />
-                  <span className="text-[9px] font-black uppercase">Export Vault</span>
+                <button onClick={() => { triggerHaptic(); onExport(); }} className={vaultButtonClass}>
+                  <Download size={18} className="text-brand-primary" />
+                  <span className="text-[9px] font-black uppercase text-brand-text">Export Vault</span>
                 </button>
-                <button onClick={() => jsonInputRef.current?.click()} className="flex flex-col items-center justify-center gap-1.5 p-4 rounded-xl bg-brand-accent text-slate-400 active:scale-[0.98] transition-all border border-brand-border shadow-sm">
-                  <History size={18} />
-                  <span className="text-[9px] font-black uppercase">Restore Vault</span>
+                <button onClick={() => { triggerHaptic(); jsonInputRef.current?.click(); }} className={vaultButtonClass}>
+                  <History size={18} className="text-brand-primary" />
+                  <span className="text-[9px] font-black uppercase text-brand-text">Restore Vault</span>
                 </button>
                 <input type="file" ref={jsonInputRef} onChange={handleJSONChange} className="hidden" accept=".json,application/json" />
             </div>
@@ -214,16 +217,16 @@ const Settings: React.FC<SettingsProps> = ({
           <div className="p-4 space-y-3">
             <h3 className={`${labelClass} text-rose-500`}><Eraser size={12} /> Maintenance</h3>
             <div className="grid grid-cols-2 gap-2">
-               <button onClick={onPurgeMockData} className="flex items-center justify-center gap-2 p-4 rounded-xl bg-brand-accent text-slate-400 border border-brand-border active:scale-95 transition-all shadow-sm">
-                  <Trash2 size={16} />
-                  <span className="text-[9px] font-black uppercase">Scrub Demo</span>
+               <button onClick={() => { triggerHaptic(); onPurgeMockData(); }} className={vaultButtonClass}>
+                  <Trash2 size={16} className="text-rose-500" />
+                  <span className="text-[9px] font-black uppercase text-brand-text">Scrub Demo</span>
                </button>
-               <button onClick={onLogout} className="flex items-center justify-center gap-2 p-4 rounded-xl bg-brand-accent text-slate-400 border border-brand-border active:scale-95 transition-all shadow-sm">
-                  <LogOut size={16} />
-                  <span className="text-[9px] font-black uppercase">Sign Out</span>
+               <button onClick={() => { triggerHaptic(); onLogout(); }} className={vaultButtonClass}>
+                  <LogOut size={16} className="text-slate-400" />
+                  <span className="text-[9px] font-black uppercase text-brand-text">Sign Out</span>
                </button>
             </div>
-            <button onClick={onReset} className="w-full flex items-center justify-center gap-2 p-4 rounded-xl bg-rose-600 text-white shadow-lg active:scale-[0.98] transition-all">
+            <button onClick={() => { triggerHaptic(); onReset(); }} className="w-full flex items-center justify-center gap-2 p-4 rounded-xl bg-brand-accent border border-brand-border active:border-rose-500 text-rose-500 shadow-sm active:scale-[0.98] transition-all">
                 <ShieldAlert size={20} />
                 <span className="text-[10px] font-black uppercase tracking-widest">Factory Reset</span>
             </button>
