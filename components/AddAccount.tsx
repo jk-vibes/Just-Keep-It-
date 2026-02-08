@@ -44,6 +44,7 @@ const AddAccount: React.FC<AddAccountProps> = ({ settings, onSave, onUpdate, onD
 
     if (isEditing && onUpdate && initialData?.id) onUpdate(initialData.id, payload);
     else onSave(payload);
+    onCancel();
   };
 
   const selectClasses = "w-full bg-brand-accent p-2 rounded-xl text-[10px] font-black border border-brand-border text-brand-text appearance-none transition-all outline-none focus:ring-1 focus:ring-brand-primary/20 truncate";

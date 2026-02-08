@@ -112,7 +112,7 @@ const Toast: React.FC<{
   const { icon, gradient, label } = config[type];
 
   return (
-    <div className="fixed bottom-[85px] left-4 z-[400] animate-slide-up pointer-events-none">
+    <div className="fixed bottom-[10px] left-4 z-[400] animate-slide-up pointer-events-none">
       <div className={`w-[260px] pointer-events-auto overflow-hidden bg-[#0c0c0c] border border-white/10 shadow-[0_20px_50px_rgba(0,0,0,0.5)] flex flex-col rounded-2xl`}>
         {/* Header with theme-aware gradient */}
         <div className={`px-3 py-1.5 bg-gradient-to-r ${gradient} flex items-center justify-between`}>

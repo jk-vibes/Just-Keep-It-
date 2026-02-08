@@ -86,7 +86,8 @@ const CategorizationModal: React.FC<CategorizationModalProps> = ({ settings, exp
     });
 
     setSelectedMainCat(null);
-    setCurrentIndex(currentIndex + 1);
+    // Note: We don't increment index here because the parent filters confirmed items out of the list.
+    // The next item in the list will automatically become the 'current' item at index 0.
   };
 
   const handleApplySuggestion = () => {
@@ -102,7 +103,7 @@ const CategorizationModal: React.FC<CategorizationModalProps> = ({ settings, exp
       });
 
       setSelectedMainCat(null);
-      setCurrentIndex(currentIndex + 1);
+      // Parent handles list filtering; next item shifts to current position.
     }
   };
 
@@ -149,7 +150,7 @@ const CategorizationModal: React.FC<CategorizationModalProps> = ({ settings, exp
             </span>
           </div>
           <div className="flex items-center gap-2">
-            <span className="font-black text-brand-primary text-[9px] tracking-widest">{currentIndex + 1}/{expenses.length}</span>
+            <span className="font-black text-brand-primary text-[9px] tracking-widest">{expenses.length} Remaining</span>
             <button onClick={onClose} className="p-1 bg-brand-accent rounded-full text-slate-400 active:scale-90">
                <X size={14} strokeWidth={3} />
             </button>

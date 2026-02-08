@@ -40,6 +40,7 @@ const AddRule: React.FC<AddRuleProps> = ({ settings, onAdd, onCancel }) => {
       mainCategory, 
       subCategory 
     });
+    onCancel();
   };
 
   const selectClasses = "w-full bg-brand-accent p-2 rounded-xl text-[10px] font-black outline-none border border-brand-border text-brand-text appearance-none cursor-pointer focus:border-brand-primary/30 transition-all truncate";
