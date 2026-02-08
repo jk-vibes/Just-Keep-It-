@@ -71,6 +71,24 @@ async function withRetry<T>(fn: () => Promise<T>, retries = 3, delay = 15000): P
   });
 }
 
+export async function generateQuickNote(merchant: string, mainCategory: string, subCategory: string): Promise<string> {
+  const prompt = `Generate a very short, professional, clever one-liner description (max 8 words) for a financial transaction.
+    Merchant: ${merchant}
+    Category: ${mainCategory} (${subCategory})
+    Examples: "Weekly grocery replenishment", "Essential monthly utility settlement", "Friday night leisure dining".
+    Return ONLY the string.`;
+
+  try {
+    const response = await withRetry<GenerateContentResponse>(() => ai.models.generateContent({
+      model: 'gemini-3-flash-preview',
+      contents: prompt,
+    }));
+    return response.text?.trim().replace(/^["']|["']$/g, '') || `${merchant}: ${subCategory}`;
+  } catch (error) {
+    return `${merchant}: ${subCategory}`;
+  }
+}
+
 export async function refineBatchTransactions(transactions: Array<{ id: string, amount: number, merchant: string, note: string }>): Promise<Array<{ id: string, merchant: string, category: Category, subCategory: string, isAvoidSuggestion: boolean }>> {
   const prompt = `
     Semantically audit and refine these financial transactions.

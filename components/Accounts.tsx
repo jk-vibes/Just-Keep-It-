@@ -11,7 +11,7 @@ import {
   Target, Info, Zap, AlertCircle,
   LayoutGrid, List, BarChart as BarChartIcon,
   ArrowUpRight, ArrowDownRight, Layers,
-  ReceiptText, Sparkles
+  ReceiptText, Sparkles, Plus
 } from 'lucide-react';
 import { 
   AreaChart, Area, 
@@ -132,7 +132,7 @@ const CustomLabel = (props: any) => {
 };
 
 const Accounts: React.FC<AccountsProps> = ({
-  wealthItems, settings, bills, onEditAccount, onAddTransferClick
+  wealthItems, settings, bills, onEditAccount, onAddTransferClick, onAddAccountClick
 }) => {
   const [activeView, setActiveView] = useState<'dashboard' | 'registry'>('dashboard');
   const currencySymbol = getCurrencySymbol(settings.currency);
@@ -213,7 +213,7 @@ const Accounts: React.FC<AccountsProps> = ({
               {activeView === 'dashboard' ? 'Portfolio' : 'Accounts'}
             </h1>
             <p className="text-[7px] font-bold text-brand-headerText/50 uppercase tracking-[0.2em] mt-1">
-              {activeView === 'dashboard' ? 'Strategic Intelligence' : 'Registry Log'}
+              {activeView === 'dashboard' ? 'Intelligence' : 'Registry'}
             </p>
           </div>
           <div className="flex items-center gap-1.5">
@@ -224,7 +224,13 @@ const Accounts: React.FC<AccountsProps> = ({
               {activeView === 'dashboard' ? <PieChartIcon size={16} /> : <BarChart3 size={16} />}
             </button>
             <button 
-              onClick={onAddTransferClick} 
+              onClick={() => { triggerHaptic(); onAddAccountClick(); }} 
+              className="p-2 bg-white/10 rounded-xl text-brand-headerText active:scale-95 transition-all"
+            >
+              <Plus size={16} />
+            </button>
+            <button 
+              onClick={() => { triggerHaptic(); onAddTransferClick?.(); }} 
               className="p-2 bg-white/10 rounded-xl text-brand-headerText active:scale-95 transition-all"
             >
               <ArrowRightLeft size={16} />
@@ -374,10 +380,10 @@ const Accounts: React.FC<AccountsProps> = ({
       <div className="bg-brand-surface text-brand-text px-4 py-3 shrink-0 flex items-center justify-between gap-4 border-t border-brand-border">
           <div className="flex items-center gap-2">
              <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-             <span className="text-[8px] font-black uppercase tracking-widest opacity-60">System Synchronized</span>
+             <span className="text-[8px] font-black uppercase tracking-widest opacity-60">System Synced</span>
           </div>
           <span className="text-[9px] font-black uppercase tracking-[0.2em]">
-            Portfolio: {currencySymbol}{Math.round(stats.totalAssets).toLocaleString()}
+            Total Assets: {currencySymbol}{Math.round(stats.totalAssets).toLocaleString()}
           </span>
       </div>
     </div>

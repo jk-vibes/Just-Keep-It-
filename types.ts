@@ -14,7 +14,8 @@ export interface BudgetItem {
   id: string;
   name: string;
   amount: number;
-  category: Category;
+  bucket: Category;
+  category: string;
   subCategory?: string;
   isRecurringLink?: string; 
   isMock?: boolean;
@@ -40,8 +41,9 @@ export interface Expense {
   id: string;
   amount: number;
   date: string;
-  category: Category;
-  subCategory?: string;
+  category: Category; // The Bucket
+  mainCategory: string; // The "Category" level
+  subCategory?: string; // The "Sub-Category" level
   paymentMethod?: PaymentMethod;
   note?: string;
   merchant?: string;
@@ -83,7 +85,8 @@ export interface WealthItem {
 export interface BudgetRule {
   id: string;
   keyword: string;
-  category: Category;
+  category: Category; // Bucket
+  mainCategory: string;
   subCategory?: string;
   isImported?: boolean;
   isMock?: boolean;
@@ -92,7 +95,8 @@ export interface BudgetRule {
 export interface RecurringItem {
   id: string;
   amount: number;
-  category: Category;
+  bucket: Category;
+  category: string;
   subCategory?: string;
   note: string;
   merchant?: string;
@@ -128,6 +132,7 @@ export interface UserSettings {
   density?: DensityLevel;
   hasLoadedMockData?: boolean;
   dataFilter: 'all' | 'user' | 'mock';
+  customCategories?: Record<Category, Record<string, string[]>>;
 }
 
 export interface UserProfile {
@@ -138,4 +143,4 @@ export interface UserProfile {
   accessToken?: string;
 }
 
-export type View = 'Dashboard' | 'Ledger' | 'Profile' | 'Add' | 'Auth' | 'Accounts' | 'Budget' | 'Rules' | 'Affordability' | 'Notifications';
+export type View = 'Dashboard' | 'Ledger' | 'Profile' | 'Add' | 'AddExpense' | 'AddIncome' | 'Auth' | 'Accounts' | 'Budget' | 'Rules' | 'Affordability' | 'Notifications';

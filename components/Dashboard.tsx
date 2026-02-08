@@ -133,7 +133,7 @@ const Dashboard: React.FC<DashboardProps> = ({
     <div className={`pb-32 pt-0 animate-slide-up flex flex-col ${isCompact ? 'gap-1.5' : 'gap-3'}`}>
       <div className="bg-gradient-to-r from-brand-primary to-brand-secondary px-3 py-2 rounded-xl mb-1 mx-0.5 shadow-md h-[50px] flex items-center shrink-0 border border-white/5">
         <div className="flex flex-col px-1">
-          <h1 className="text-[14px] font-black text-brand-headerText uppercase leading-none tracking-tight">Overview</h1>
+          <h1 className="text-[14px] font-black text-brand-headerText uppercase leading-none tracking-tight">Dashboard</h1>
           <p className="text-[7px] font-bold text-brand-headerText/50 uppercase tracking-[0.2em] mt-1">Wealth Summary</p>
         </div>
       </div>

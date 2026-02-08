@@ -1,3 +1,4 @@
+
 import { Category, WealthType, WealthCategory } from '../types';
 import { SUB_CATEGORIES } from '../constants';
 
@@ -103,7 +104,9 @@ function cleanAmount(val: string): number {
 function resolveCategorySignals(text: string): { category: Category; subCategory: string } {
   const combined = text.toLowerCase();
   if (PATTERNS.ccPayment.test(combined)) return { category: 'Uncategorized', subCategory: 'Bill Payment' };
-  for (const [parent, children] of Object.entries(SUB_CATEGORIES)) {
+  
+  // Fix: add explicit type cast for Object.entries values to fix property 'find' does not exist on type 'unknown'
+  for (const [parent, children] of Object.entries(SUB_CATEGORIES) as [string, string[]][]) {
     const match = children.find(child => combined.includes(child.toLowerCase()));
     if (match) return { category: parent as Category, subCategory: match };
   }
@@ -268,36 +271,4 @@ function parseGenericRows(rows: string[][]): ParsedEntry[] {
     }
   }
   return results;
-}
-
-function processRawLine(content: string, fallbackDate: string): ParsedEntry | null {
-  if (!content || content.trim().length < 10) return null;
-  const lowerContent = content.toLowerCase();
-  if (PATTERNS.otp.test(lowerContent) || PATTERNS.junk.test(lowerContent)) return null;
-
-  try {
-    const amountMatch = content.match(PATTERNS.amount);
-    if (!amountMatch) return null;
-    const amount = Math.round(cleanAmount(amountMatch[1]));
-    if (amount <= 0) return null;
-
-    const isCredit = PATTERNS.received.test(lowerContent);
-    const isDebit = PATTERNS.spent.test(lowerContent);
-    const isTransfer = PATTERNS.transfer.test(lowerContent);
-    const isCC = PATTERNS.ccPayment.test(lowerContent);
-    
-    if (!isCredit && !isDebit && !isTransfer && !isCC) return null;
-    
-    let merchant = 'General';
-    const mMatch = content.match(PATTERNS.merchant);
-    if (mMatch) merchant = mMatch[1].trim();
-    merchant = merchant.replace(/^[^\w]+|[^\w]+$/g, '').substring(0, 30) || 'Retailer';
-
-    const logDate = normalizeDate(content) || fallbackDate;
-
-    if (isCC || isTransfer) return { entryType: 'Transfer', amount, merchant, category: 'Uncategorized', subCategory: isCC ? 'Bill Payment' : 'Transfer', date: logDate, rawContent: content };
-    const { category, subCategory } = resolveCategorySignals(merchant + ' ' + content);
-    if (isCredit) return { entryType: 'Income', amount, merchant, incomeType: 'Other', date: logDate, rawContent: content };
-    return { entryType: 'Expense', amount, merchant, category, subCategory, date: logDate, rawContent: content };
-  } catch (err) { return null; }
 }

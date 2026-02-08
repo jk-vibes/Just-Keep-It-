@@ -22,24 +22,34 @@ const Navbar: React.FC<NavbarProps> = ({ currentView, remainingPercentage, netWo
   const savingsRate = Math.max(0, Math.min(100, remainingPercentage));
   const isNegativePortfolio = netWorth < 0;
 
-  const handleClick = () => {
+  const handleMainClick = () => {
     triggerHaptic(20);
     if (currentView === 'Dashboard') {
         onViewChange('Affordability');
     } else {
-        onViewChange('Add');
+        onViewChange('Dashboard');
     }
   };
 
+  const handleAddClick = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    triggerHaptic(25);
+    // Send generic 'Add' signal to let App.tsx decide the context
+    onViewChange('Add');
+  };
+
   const renderIcon = () => {
-    // Shared Plus Badge - Styled to feel like an attachment
-    const PlusBadge = ({ colorClass = "bg-brand-primary" }) => (
-      <div className={`absolute -top-1 -right-1 ${colorClass} text-white w-6 h-6 rounded-full flex items-center justify-center shadow-[0_4px_12px_rgba(0,0,0,0.15)] border-2 border-white dark:border-slate-800 transition-all z-20 active:scale-90`}>
-        <Plus size={14} strokeWidth={4} />
-      </div>
+    // Single High-Visibility Badge for context-aware Adding
+    const ActionBadge = () => (
+      <button 
+        onClick={handleAddClick}
+        className="absolute -top-1 -right-1 bg-brand-accentUi text-brand-headerText w-8 h-8 rounded-full flex items-center justify-center shadow-[0_4px_12px_rgba(251,191,36,0.3)] border-2 border-white dark:border-slate-800 transition-all z-30 active:scale-75 pointer-events-auto"
+      >
+        <Plus size={20} strokeWidth={4} />
+      </button>
     );
 
-    // Branded Briefcase - Shape mirrors App Header, all text removed for a minimalist aesthetic
+    // Branded Briefcase
     const JKBriefcase = ({ fillId, children }: { fillId: string, children?: React.ReactNode }) => (
       <div className="relative animate-kick group">
         <svg 
@@ -50,14 +60,12 @@ const Navbar: React.FC<NavbarProps> = ({ currentView, remainingPercentage, netWo
           xmlns="http://www.w3.org/2000/svg" 
           className="transition-transform duration-300 drop-shadow-2xl"
         >
-          {/* Main Body Path with Percentage Fill */}
           <path 
             d="M4 8C4 7.44772 4.44772 7 5 7H19C19.5523 7 20 7.44772 20 8V20C20 21.1046 19.1046 22 18 22H6C4.89543 22 4 21.1046 4 20V8Z" 
             fill={`url(#${fillId})`}
             stroke="var(--brand-border)"
             strokeWidth="0.5"
           />
-          {/* Handle - Fixed visibility in light themes by using var(--brand-text) */}
           <path 
             d="M8 7V5C8 3.89543 8.89543 3 10 3H14C15.1046 3 16 3.89543 16 5V7" 
             stroke="var(--brand-text)" 
@@ -130,7 +138,7 @@ const Navbar: React.FC<NavbarProps> = ({ currentView, remainingPercentage, netWo
               className="transition-all duration-1000 ease-out"
             />
           </svg>
-          <PlusBadge colorClass="bg-brand-primary" />
+          <ActionBadge />
         </div>
       );
     }
@@ -148,7 +156,7 @@ const Navbar: React.FC<NavbarProps> = ({ currentView, remainingPercentage, netWo
             </defs>
           </svg>
           <JKBriefcase fillId="accountBrandedFill" />
-          <PlusBadge colorClass={isNegativePortfolio ? "bg-rose-600" : "bg-emerald-600"} />
+          <ActionBadge />
         </div>
       );
     }
@@ -166,7 +174,6 @@ const Navbar: React.FC<NavbarProps> = ({ currentView, remainingPercentage, netWo
             <JKBriefcase fillId="dashboardBrandedFill">
               <MessageCircleQuestion className="text-white" size={24} strokeWidth={3} />
             </JKBriefcase>
-            <PlusBadge colorClass="bg-white !text-brand-primary border-brand-primary" />
           </div>
         );
     }
@@ -182,20 +189,21 @@ const Navbar: React.FC<NavbarProps> = ({ currentView, remainingPercentage, netWo
           </defs>
         </svg>
         <JKBriefcase fillId="wealthBrandedFill" />
-        <PlusBadge />
+        <ActionBadge />
       </div>
     );
   };
 
   return (
     <div className="fixed bottom-0 left-0 right-0 z-50 pointer-events-none pb-8 px-4 flex justify-end">
-      <button
-        onClick={handleClick}
-        className="pointer-events-auto flex items-center justify-center transition-all active:scale-75 hover:scale-110 group relative"
+      <div
+        className="pointer-events-auto flex items-center justify-center transition-all active:scale-95 hover:scale-110 group relative"
       >
         <div className="absolute inset-0 bg-brand-primary/20 blur-2xl rounded-full scale-150 group-hover:bg-brand-primary/30 transition-all"></div>
-        {renderIcon()}
-      </button>
+        <div onClick={handleMainClick} className="cursor-pointer">
+          {renderIcon()}
+        </div>
+      </div>
     </div>
   );
 };

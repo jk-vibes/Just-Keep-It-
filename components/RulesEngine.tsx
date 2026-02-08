@@ -43,13 +43,13 @@ const RulesEngine: React.FC<RulesEngineProps> = ({ rules, settings, onAddRule, o
           <div className="bg-brand-surface p-6 rounded-[32px] border border-brand-border shadow-xl space-y-5 animate-kick">
             <div className="space-y-1.5">
                <p className="text-[8px] font-black text-slate-500 uppercase tracking-widest ml-1">Detection Keyword</p>
-               <input value={keyword} onChange={(e) => setKeyword(e.target.value)} placeholder="e.g. Zomato, Rent, Netflix" className="w-full p-4 bg-black/40 rounded-2xl text-xs font-black outline-none border border-white/10 text-white" />
+               <input value={keyword} onChange={(e) => setKeyword(e.target.value)} placeholder="e.g. Zomato, Rent, Netflix" className="w-full p-4 bg-brand-accent/20 rounded-2xl text-xs font-black outline-none border border-brand-border text-brand-text" />
             </div>
             <div className="space-y-1.5">
               <p className="text-[8px] font-black text-slate-500 uppercase tracking-widest ml-1">Target Bucket</p>
-              <div className="flex bg-black/40 p-1 rounded-2xl border border-white/5">
+              <div className="flex bg-brand-accent/20 p-1 rounded-2xl border border-brand-border">
                 {(['Needs', 'Wants', 'Savings'] as Category[]).map(cat => (
-                  <button key={cat} onClick={() => setCategory(cat)} className={`flex-1 py-2 text-[9px] font-black uppercase rounded-xl transition-all ${category === cat ? 'bg-white/10 text-brand-primary shadow-sm' : 'text-slate-600'}`}>{cat}</button>
+                  <button key={cat} onClick={() => setCategory(cat)} className={`flex-1 py-2 text-[9px] font-black uppercase rounded-xl transition-all ${category === cat ? 'bg-brand-surface text-brand-primary shadow-sm' : 'text-slate-600'}`}>{cat}</button>
                 ))}
               </div>
             </div>

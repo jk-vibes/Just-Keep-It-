@@ -65,7 +65,7 @@ const SubCategoryCard: React.FC<{ item: BudgetItem; spent: number; currencySymbo
     const budgetAmount = isYTD ? item.amount * monthsElapsed : item.amount;
     const percentage = budgetAmount > 0 ? (spent / budgetAmount) * 100 : 0;
     const isOver = spent > budgetAmount;
-    const color = CATEGORY_COLORS[item.category];
+    const color = CATEGORY_COLORS[item.bucket as Category];
 
     return (
         <div 
@@ -74,12 +74,12 @@ const SubCategoryCard: React.FC<{ item: BudgetItem; spent: number; currencySymbo
         >
             <div className="flex justify-between items-start">
                 <div className="flex items-center gap-2">
-                    <div className={`${isCompact ? 'p-1' : 'p-1.5'} rounded-lg bg-brand-accent/20 text-slate-500 border border-white/5`}>
+                    <div className={`${isCompact ? 'p-1' : 'p-1.5'} rounded-lg bg-brand-accent/20 text-slate-500 border border-white/5`} style={{ color }}>
                         <Layers size={isCompact ? 10 : 12} />
                     </div>
                     <div className="min-w-0">
                         <h4 className={`${isCompact ? 'text-[9px]' : 'text-[10px]'} font-black text-brand-text uppercase leading-none truncate w-32`}>{item.name}</h4>
-                        <p className={`${isCompact ? 'text-[6px]' : 'text-[7px]'} font-bold text-slate-500 uppercase tracking-widest mt-0.5`}>{item.subCategory || 'General'}</p>
+                        <p className={`${isCompact ? 'text-[6px]' : 'text-[7px]'} font-bold text-slate-500 uppercase tracking-widest mt-0.5`}>{item.category} • {item.subCategory || 'General'}</p>
                     </div>
                 </div>
                 <div className="flex items-start gap-2">
@@ -109,7 +109,7 @@ const SubCategoryCard: React.FC<{ item: BudgetItem; spent: number; currencySymbo
 };
 
 const RecurringCard: React.FC<{ item: RecurringItem; currencySymbol: string; onEdit: (item: RecurringItem) => void; isCompact: boolean }> = ({ item, currencySymbol, onEdit, isCompact }) => {
-  const color = CATEGORY_COLORS[item.category];
+  const color = CATEGORY_COLORS[item.bucket];
   
   return (
     <div 
@@ -195,7 +195,7 @@ const BudgetPlanner: React.FC<BudgetPlannerProps> = ({
     
     const categories: Category[] = ['Needs', 'Wants', 'Savings'];
     const utilByCat = categories.reduce((acc, cat) => {
-      let catPlanned = budgetItems.filter(i => i.category === cat).reduce((s, i) => s + i.amount, 0);
+      let catPlanned = budgetItems.filter(i => i.bucket === cat).reduce((s, i) => s + i.amount, 0);
       if (isYTD) catPlanned *= monthsElapsed;
       const catRealized = curExps.filter(e => e.category === cat).reduce((s, e) => s + e.amount, 0);
       acc[cat] = { planned: catPlanned, realized: catRealized, percentage: catPlanned > 0 ? (catRealized / catPlanned) * 100 : 0 };
@@ -204,14 +204,15 @@ const BudgetPlanner: React.FC<BudgetPlannerProps> = ({
 
     const subCatUsage = budgetItems.reduce((acc, item) => {
         const spent = curExps.filter(e => {
-            const isMatchingCategory = e.category === item.category;
-            if (!isMatchingCategory) return false;
+            const isMatchingBucket = e.category === item.bucket;
+            if (!isMatchingBucket) return false;
             
-            const subMatch = item.subCategory && e.subCategory === item.subCategory;
+            const isMatchingCategory = e.mainCategory === item.category;
+            const subMatch = item.subCategory && (item.subCategory === 'General' || e.subCategory === item.subCategory);
             const nameMatch = e.merchant?.toLowerCase().includes(item.name.toLowerCase()) || 
                              e.note?.toLowerCase().includes(item.name.toLowerCase());
             
-            return subMatch || nameMatch;
+            return (isMatchingCategory && subMatch) || nameMatch;
         }).reduce((s, e) => s + e.amount, 0);
         
         acc[item.id] = spent;
@@ -225,14 +226,14 @@ const BudgetPlanner: React.FC<BudgetPlannerProps> = ({
 
   const filteredBudgetItems = useMemo(() => {
     if (!selectedCategory) return budgetItems;
-    return budgetItems.filter(item => item.category === selectedCategory);
+    return budgetItems.filter(item => item.bucket === selectedCategory);
   }, [budgetItems, selectedCategory]);
 
   return (
     <div className={`pb-32 pt-0 animate-slide-up flex flex-col ${isCompact ? 'gap-1.5' : 'gap-3'}`}>
       <div className="bg-gradient-to-r from-brand-primary to-brand-secondary px-5 py-3 rounded-xl mb-1 mx-0.5 shadow-md h-[50px] flex items-center justify-between border border-white/5">
         <div className="flex flex-col">
-          <h1 className="text-[14px] font-black text-brand-headerText uppercase leading-none tracking-tight">Strategy Center</h1>
+          <h1 className="text-[14px] font-black text-brand-headerText uppercase leading-none tracking-tight">Budget Planner</h1>
           <p className="text-[7px] font-bold text-brand-headerText/50 uppercase tracking-[0.2em] mt-0.5">Tactical Protocol</p>
         </div>
         <button 
@@ -286,9 +287,16 @@ const BudgetPlanner: React.FC<BudgetPlannerProps> = ({
               </div>
             </section>
             <div className={`space-y-1.5 ${isCompact ? 'px-0' : 'px-0'}`}>
-               {filteredBudgetItems.map(item => (
-                 <SubCategoryCard key={item.id} item={item} spent={stats.subCatUsage[item.id] || 0} currencySymbol={currencySymbol} isYTD={period === 'YTD'} monthsElapsed={new Date(viewDate).getMonth() + 1} onEdit={onEditBudget} isCompact={isCompact} />
-               ))}
+               {filteredBudgetItems.length === 0 ? (
+                 <div className="py-20 text-center flex flex-col items-center justify-center opacity-20">
+                    <Target size={40} strokeWidth={1} />
+                    <p className="text-[10px] font-black uppercase tracking-[0.4em] mt-4">No goals defined</p>
+                 </div>
+               ) : (
+                 filteredBudgetItems.map(item => (
+                   <SubCategoryCard key={item.id} item={item} spent={stats.subCatUsage[item.id] || 0} currencySymbol={currencySymbol} isYTD={period === 'YTD'} monthsElapsed={new Date(viewDate).getMonth() + 1} onEdit={onEditBudget} isCompact={isCompact} />
+                 ))
+               )}
             </div>
           </>
         ) : activeView === 'Bills' ? (

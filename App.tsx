@@ -7,7 +7,6 @@ import AddIncome from './components/AddIncome';
 import AddBill from './components/AddBill';
 import AddAccount from './components/AddAccount';
 import AddTransfer from './components/AddTransfer';
-import AddRecord from './components/AddRecord';
 import Settings from './components/Settings';
 import Navbar from './components/Navbar';
 import CategorizationModal from './components/CategorizationModal';
@@ -24,13 +23,13 @@ import BillPayModal from './components/BillPayModal';
 import BudgetGoalModal from './components/BudgetGoalModal';
 import { SpiderIcon, NarutoIcon, CaptainAmericaIcon, BatmanIcon, MoonIcon } from './components/ThemeSymbols';
 import { Loader2, LayoutDashboard, List, Settings as SettingsIcon, Bell, Wallet, Target, X, Sparkles, CheckCircle2, AlertCircle, Zap } from 'lucide-react';
-import { DEFAULT_SPLIT } from './constants';
+import { DEFAULT_SPLIT, DEFAULT_CATEGORIES } from './constants';
 import { triggerHaptic } from './utils/haptics';
 import { parseSmsLocally } from './utils/smsParser';
 import { generate12MonthData } from './utils/mockData';
 
 const STORAGE_KEY = 'jk_budget_data_whole_num_v12';
-const APP_VERSION = 'v1.2.4';
+const APP_VERSION = 'v1.2.5';
 
 const INITIAL_SETTINGS: UserSettings = {
   monthlyIncome: 350000,
@@ -41,7 +40,8 @@ const INITIAL_SETTINGS: UserSettings = {
   currency: 'INR',
   dataFilter: 'all',
   density: 'Compact',
-  hasLoadedMockData: false
+  hasLoadedMockData: false,
+  customCategories: DEFAULT_CATEGORIES
 };
 
 const BackgroundCharacter = ({ theme }: { theme: AppTheme }) => {
@@ -98,7 +98,6 @@ const App: React.FC = () => {
   const [isAddingAccount, setIsAddingAccount] = useState(false);
   const [isAddingTransfer, setIsAddingTransfer] = useState(false);
   const [isAddingBudget, setIsAddingBudget] = useState(false);
-  const [isAddingRecurring, setIsAddingRecurring] = useState(false);
   const [editingRecord, setEditingRecord] = useState<any | null>(null);
   const [editingBudget, setEditingBudget] = useState<BudgetItem | null>(null);
   
@@ -114,15 +113,15 @@ const App: React.FC = () => {
   const handleLoadMockData = useCallback(() => {
     triggerHaptic(50);
     const mock = generate12MonthData();
-    setExpenses(prev => [...mock.expenses, ...prev]);
+    setExpenses(prev => [...mock.expenses, ...prev] as any);
     setIncomes(prev => [...mock.incomes, ...prev]);
     setWealthItems(prev => [...mock.wealthItems, ...prev]);
-    setBudgetItems(prev => [...mock.budgetItems, ...prev]);
-    setRules(prev => [...mock.rules, ...prev]);
+    setBudgetItems(prev => [...mock.budgetItems, ...prev] as any);
+    setRules(prev => [...mock.rules, ...prev] as any);
     setBills(prev => [...mock.bills, ...prev]);
-    setRecurringItems(prev => [...mock.recurringItems, ...prev]);
+    setRecurringItems(prev => [...mock.recurringItems, ...prev] as any);
     setSettings(prev => ({ ...prev, hasLoadedMockData: true, monthlyIncome: 350000 }));
-    showToast("12 months of high-fidelity tactical data loaded successfully.");
+    showToast("Tactical demo data loaded.");
   }, [showToast]);
 
   const handlePurgeMockData = useCallback(() => {
@@ -135,7 +134,7 @@ const App: React.FC = () => {
     setBills(prev => prev.filter(b => !b.isMock));
     setRecurringItems(prev => prev.filter(r => !r.isMock));
     setSettings(prev => ({ ...prev, hasLoadedMockData: false }));
-    showToast("Demo data purged from registry.");
+    showToast("Demo data purged.");
   }, [showToast]);
 
   const handleExportJSON = useCallback(() => {
@@ -144,12 +143,12 @@ const App: React.FC = () => {
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.href = url;
-    link.download = `jk_vault_export_${new Date().toISOString().split('T')[0]}.json`;
+    link.download = `vault_backup_${new Date().toISOString().split('T')[0]}.json`;
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
     URL.revokeObjectURL(url);
-    showToast("Vault exported to system memory.");
+    showToast("Vault exported.");
   }, [settings, expenses, incomes, wealthItems, bills, budgetItems, rules, recurringItems, notifications, showToast]);
 
   const handleRestoreJSON = useCallback((file: File) => {
@@ -166,9 +165,9 @@ const App: React.FC = () => {
         if (parsed.recurringItems) setRecurringItems(parsed.recurringItems);
         if (parsed.notifications) setNotifications(parsed.notifications);
         if (parsed.settings) setSettings(prev => ({ ...prev, ...parsed.settings }));
-        showToast("Handshake complete. Vault restored.");
+        showToast("Vault restored.");
       } catch (err) {
-        showToast("Neural link failed: Invalid vault file.", 'error');
+        showToast("Restore failed: Invalid file.", 'error');
       }
     };
     reader.readAsText(file);
@@ -186,19 +185,30 @@ const App: React.FC = () => {
           results.forEach(res => {
             const id = Math.random().toString(36).substring(2, 11);
             if (res.entryType === 'Expense' || res.entryType === 'Transfer' || res.entryType === 'Bill Payment') {
-              newExpenses.push({ id, amount: res.amount || 0, date: res.date, category: res.category || 'Uncategorized', subCategory: res.subCategory || 'General', merchant: res.merchant, note: res.rawContent, isConfirmed: true, isImported: true });
+              newExpenses.push({ 
+                id, 
+                amount: res.amount || 0, 
+                date: res.date, 
+                category: res.category || 'Uncategorized', 
+                mainCategory: 'General',
+                subCategory: res.subCategory || 'General', 
+                merchant: res.merchant, 
+                note: res.rawContent, 
+                isConfirmed: true, 
+                isImported: true 
+              });
             } else if (res.entryType === 'Income') {
               newIncomes.push({ id, amount: res.amount || 0, date: res.date, type: (res.incomeType as any) || 'Other', note: res.rawContent, isImported: true });
             }
           });
           if (newExpenses.length > 0) setExpenses(prev => [...newExpenses, ...prev]);
           if (newIncomes.length > 0) setIncomes(prev => [...newIncomes, ...prev]);
-          showToast(`Direct ingestion successful: ${results.length} records processed.`);
+          showToast(`Imported ${results.length} records.`);
         } else {
-          showToast("No readable signals found in CSV.", 'error');
+          showToast("No readable data in file.", 'error');
         }
       } catch (err) {
-        showToast("Processing failure.", 'error');
+        showToast("Import failed.", 'error');
       }
     };
     reader.readAsText(file);
@@ -246,12 +256,6 @@ const App: React.FC = () => {
     return bills.filter(b => !b.isPaid);
   }, [bills, settings.dataFilter]);
 
-  const visibleRecurringItems = useMemo(() => {
-    if (settings.dataFilter === 'user') return recurringItems.filter(r => !r.isMock);
-    if (settings.dataFilter === 'mock') return recurringItems.filter(r => r.isMock);
-    return recurringItems;
-  }, [recurringItems, settings.dataFilter]);
-
   const globalMetrics = useMemo(() => {
     const m = viewDate.getMonth(); const y = viewDate.getFullYear();
     const assets = visibleWealth.filter(i => i.type === 'Investment').reduce((sum, i) => sum + i.value, 0);
@@ -272,7 +276,7 @@ const App: React.FC = () => {
     const remainingPercentage = monthlyIncome > 0 ? Math.max(0, ((monthlyIncome - totalSpent) / monthlyIncome) * 100) : 0;
     const categoryPercentages = { Needs: 0, Wants: 0, Savings: 0, Avoids: 0 }; 
     (['Needs', 'Wants', 'Savings', 'Avoids'] as const).forEach(cat => {
-      const catBudget = visibleBudgetItems.filter(b => b.category === cat).reduce((sum, b) => sum + b.amount, 0);
+      const catBudget = visibleBudgetItems.filter(b => b.bucket === cat).reduce((sum, b) => sum + b.amount, 0);
       categoryPercentages[cat] = catBudget > 0 ? (totals[cat] / catBudget) * 100 : 0;
     });
     return { categoryPercentages, remainingPercentage, netWorth, healthStatus };
@@ -291,27 +295,18 @@ const App: React.FC = () => {
     } else {
       setExpenses(prev => prev.map(e => e.id === id ? { ...e, ...updates } : e));
     }
-    showToast("Expense updated in registry");
+    showToast("Expense updated.");
   }, [showToast]);
 
   const handleUpdateIncome = useCallback((id: string, updates: Partial<Income>) => {
     setIncomes(prev => prev.map(i => i.id === id ? { ...i, ...updates } : i));
-    showToast("Inflow updated in registry");
+    showToast("Income updated.");
   }, [showToast]);
 
   const handleUpdateWealth = useCallback((id: string, updates: Partial<WealthItem>) => {
     setWealthItems(prev => prev.map(w => w.id === id ? { ...w, ...updates } : w));
-    showToast("Account updated");
+    showToast("Account updated.");
   }, [showToast]);
-
-  const handleUpdateRecurring = useCallback((id: string, updates: Partial<RecurringItem>) => {
-    setRecurringItems(prev => prev.map(r => r.id === id ? { ...r, ...updates } : r));
-    showToast("Cycle item updated");
-  }, [showToast]);
-
-  const handlePayBill = useCallback((bill: Bill) => {
-    setSettlingBill(bill);
-  }, []);
 
   const executeBillSettlement = useCallback((bill: Bill, accountId: string) => {
     triggerHaptic(50);
@@ -322,32 +317,30 @@ const App: React.FC = () => {
           value: w.type === 'Liability' ? w.value + bill.amount : w.value - bill.amount 
         };
       }
-      if (bill.accountId && w.id === bill.accountId && w.id !== accountId) {
-        return { 
-          ...w, 
-          value: w.type === 'Liability' ? Math.max(0, w.value - bill.amount) : w.value + bill.amount 
-        };
-      }
       return w;
     }));
-
     setBills(prev => prev.map(b => b.id === bill.id ? { ...b, isPaid: true, accountId } : b));
-    
     const newExpense: Expense = {
       id: Math.random().toString(36).substring(2, 11),
       amount: bill.amount,
       date: new Date().toISOString().split('T')[0],
       category: 'Needs', 
+      mainCategory: 'Obligations',
       subCategory: 'Bill Payment',
       merchant: bill.merchant,
-      note: `Settled: ${bill.merchant}`,
+      note: `Paid: ${bill.merchant}`,
       isConfirmed: true,
       sourceAccountId: accountId,
       billId: bill.id
     };
     setExpenses(prev => [newExpense, ...prev]);
     setSettlingBill(null);
-    showToast(`Bill settled: ${bill.merchant}`);
+    showToast(`Bill paid: ${bill.merchant}`);
+  }, [showToast]);
+
+  const handleUpdateCustomCategories = useCallback((customCategories: Record<Category, Record<string, string[]>>) => {
+    setSettings(prev => ({ ...prev, customCategories }));
+    showToast("Categories updated.");
   }, [showToast]);
 
   useEffect(() => {
@@ -387,6 +380,22 @@ const App: React.FC = () => {
   if (isResetting) return <div className="w-full h-screen bg-brand-bg flex items-center justify-center"><Loader2 className="animate-spin text-brand-primary" size={32} /></div>;
   if (isLoading) return <div className="w-full h-screen bg-brand-bg flex items-center justify-center"><Loader2 className="animate-spin text-brand-primary" size={32} /></div>;
   if (!isAuthenticated) return <AuthScreen onLogin={(p) => { setUser(p); setIsAuthenticated(true); }} />;
+
+  const handleNavbarViewChange = (v: View) => {
+    if (v === 'Affordability') {
+      setIsShowingAskMe(true);
+    } else if (v === 'AddExpense') {
+      setIsAddingExpense(true);
+    } else if (v === 'AddIncome') {
+      setIsAddingIncome(true);
+    } else if (v === 'Add') {
+      if (currentView === 'Accounts') setIsAddingAccount(true);
+      else if (currentView === 'Budget') setIsAddingBudget(true);
+      else setIsAddingExpense(true);
+    } else {
+      setCurrentView(v);
+    }
+  };
 
   return (
     <div className="h-screen overflow-hidden bg-brand-bg flex flex-col relative text-brand-text transition-colors duration-500">
@@ -437,92 +446,40 @@ const App: React.FC = () => {
         <div className="max-w-2xl mx-auto w-full px-2 min-h-full flex flex-col">
           <div className="flex-1">
             {currentView === 'Dashboard' && <Dashboard expenses={visibleExpenses} incomes={visibleIncomes} wealthItems={visibleWealth} budgetItems={visibleBudgetItems} settings={settings} user={user} onCategorizeClick={() => setIsCategorizing(true)} onConfirmExpense={() => {}} onSmartAdd={() => {}} onNavigate={(v) => setCurrentView(v)} viewDate={viewDate} onMonthChange={(d) => setViewDate(new Date(viewDate.getFullYear(), viewDate.getMonth() + d, 1))} onGoToDate={() => {}} onAffordabilityCheck={() => setIsShowingAskMe(true)} />}
-            {currentView === 'Ledger' && <Ledger expenses={visibleExpenses} incomes={visibleIncomes} wealthItems={visibleWealth} bills={visibleBills} rules={rules} settings={settings} onDeleteExpense={(id) => setExpenses(p => p.filter(e => e.id !== id))} onDeleteIncome={(id) => setIncomes(p => p.filter(i => i.id !== id))} onDeleteWealth={(id) => setWealthItems(p => p.filter(w => w.id !== id))} onConfirm={(id, cat) => handleUpdateExpense(id, { category: cat, isConfirmed: true })} onUpdateExpense={handleUpdateExpense} onEditRecord={(r) => setEditingRecord(r)} onAddBulk={(items) => setExpenses(p => [...p, ...items.map(i => ({ ...i, id: Math.random().toString(36).substring(2, 11) }))])} viewDate={viewDate} onMonthChange={(d) => setViewDate(new Date(viewDate.getFullYear(), viewDate.getMonth() + d, 1))} onGoToDate={() => {}} addNotification={addNotification} showToast={showToast} />}
-            {currentView === 'Budget' && <BudgetPlanner budgetItems={visibleBudgetItems} recurringItems={visibleRecurringItems} expenses={visibleExpenses} bills={visibleBills} wealthItems={visibleWealth} settings={settings} onAddBudget={() => setIsAddingBudget(true)} onEditBudget={(b) => setEditingBudget(b)} onUpdateBudget={(id, updates) => setBudgetItems(prev => prev.map(b => b.id === id ? { ...b, ...updates } : b))} onDeleteBudget={(id) => setBudgetItems(prev => prev.filter(b => b.id !== id))} onPayBill={handlePayBill} onDeleteBill={(id) => setBills(p => p.filter(b => b.id !== id))} onEditBill={(b) => setEditingRecord(b)} onEditExpense={(e) => setEditingRecord(e)} onAddBillClick={() => setIsAddingBill(true)} onAddRecurringClick={() => setIsAddingRecurring(true)} onEditRecurring={(r) => setEditingRecord(r)} viewDate={viewDate} />}
+            {currentView === 'Ledger' && <Ledger expenses={visibleExpenses} incomes={visibleIncomes} wealthItems={visibleWealth} bills={visibleBills} rules={rules} settings={settings} onDeleteExpense={(id) => setExpenses(p => p.filter(e => e.id !== id))} onDeleteIncome={(id) => setIncomes(p => p.filter(i => i.id !== id))} onDeleteWealth={(id) => setWealthItems(p => p.filter(w => w.id !== id))} onConfirm={(id, cat) => handleUpdateExpense(id, { category: cat, isConfirmed: true })} onUpdateExpense={handleUpdateExpense} onEditRecord={(r) => setEditingRecord(r)} onAddRecord={() => setIsAddingExpense(true)} onAddIncome={() => setIsAddingIncome(true)} onAddBulk={(items) => setExpenses(p => [...p, ...items.map(i => ({ ...i, id: Math.random().toString(36).substring(2, 11) }))])} viewDate={viewDate} onMonthChange={(d) => setViewDate(new Date(viewDate.getFullYear(), viewDate.getMonth() + d, 1))} onGoToDate={() => {}} addNotification={addNotification} showToast={showToast} />}
+            {currentView === 'Budget' && <BudgetPlanner budgetItems={visibleBudgetItems} recurringItems={recurringItems} expenses={visibleExpenses} bills={visibleBills} wealthItems={visibleWealth} settings={settings} onAddBudget={() => setIsAddingBudget(true)} onEditBudget={(b) => setEditingBudget(b)} onUpdateBudget={(id, updates) => setBudgetItems(prev => prev.map(b => b.id === id ? { ...b, ...updates } : b))} onDeleteBudget={(id) => setBudgetItems(prev => prev.filter(b => b.id !== id))} onPayBill={(b) => setSettlingBill(b)} onDeleteBill={(id) => setBills(p => p.filter(b => b.id !== id))} onEditBill={(b) => setEditingRecord(b)} onEditExpense={(e) => setEditingRecord(e)} onAddBillClick={() => setIsAddingBill(true)} onAddRecurringClick={() => setIsAddingExpense(true)} onEditRecurring={(r) => setEditingRecord(r)} viewDate={viewDate} />}
             {currentView === 'Accounts' && <Accounts wealthItems={visibleWealth} expenses={visibleExpenses} incomes={visibleIncomes} bills={visibleBills} settings={settings} onUpdateWealth={handleUpdateWealth} onDeleteWealth={(id) => setWealthItems(p => p.filter(w => w.id !== id))} onAddWealth={() => {}} onEditAccount={(a) => setEditingRecord({...a, mode: 'Account'})} onAddAccountClick={() => setIsAddingAccount(true)} onAddTransferClick={() => setIsAddingTransfer(true)} onDeleteExpense={(id) => setExpenses(p => p.filter(e => e.id !== id))} onDeleteIncome={(id) => setIncomes(p => p.filter(i => i.id !== id))} />}
             {currentView === 'Rules' && <RulesEngine rules={rules.filter(r => settings.dataFilter === 'user' ? !r.isMock : settings.dataFilter === 'mock' ? r.isMock : true)} settings={settings} onAddRule={(r) => setRules(p => [...p, { ...r, id: Math.random().toString(36).substring(2, 11) }])} onDeleteRule={(id) => setRules(p => p.filter(r => r.id !== id))} />}
             {currentView === 'Notifications' && <NotificationPane notifications={notifications} onClose={() => setCurrentView('Dashboard')} onClear={() => setNotifications([])} isPage={true} />}
-            {currentView === 'Profile' && <Settings settings={settings} user={user} onLogout={() => setIsAuthenticated(false)} onReset={handleReset} onToggleTheme={() => {}} onUpdateAppTheme={(t) => setSettings(s => ({ ...s, appTheme: t }))} onUpdateCurrency={(c) => setSettings(s => ({ ...s, currency: c }))} onUpdateBaseIncome={(income) => setSettings(s => ({ ...s, monthlyIncome: income }))} onUpdateSplit={(split) => setSettings(s => ({ ...s, split }))} onSync={() => {}} onExport={handleExportJSON} onImport={handleCSVImport} onRestore={handleRestoreJSON} onAddBulk={() => {}} isSyncing={isSyncing} onLoadMockData={handleLoadMockData} onPurgeMockData={handlePurgeMockData} onUpdateDensity={(d) => setSettings(s => ({ ...s, density: d }))} />}
+            {currentView === 'Profile' && <Settings settings={settings} user={user} onLogout={() => setIsAuthenticated(false)} onReset={handleReset} onToggleTheme={() => {}} onUpdateAppTheme={(t) => setSettings(s => ({ ...s, appTheme: t }))} onUpdateCurrency={(c) => setSettings(s => ({ ...s, currency: c }))} onUpdateBaseIncome={(income) => setSettings(s => ({ ...s, monthlyIncome: income }))} onUpdateSplit={(split) => setSettings(s => ({ ...s, split }))} onSync={() => {}} onExport={handleExportJSON} onImport={handleCSVImport} onRestore={handleRestoreJSON} onAddBulk={() => {}} isSyncing={isSyncing} onLoadMockData={handleLoadMockData} onPurgeMockData={handlePurgeMockData} onUpdateDensity={(d) => setSettings(s => ({ ...s, density: d }))} onUpdateCustomCategories={handleUpdateCustomCategories} />}
           </div>
           <Footer />
         </div>
       </main>
 
       {toast && <Toast {...toast} onClose={() => setToast(null)} />}
-      <Navbar currentView={currentView} remainingPercentage={globalMetrics.remainingPercentage} netWorth={globalMetrics.netWorth} categoryPercentages={globalMetrics.categoryPercentages} onViewChange={(v) => v === 'Affordability' ? setIsShowingAskMe(true) : v === 'Add' ? (currentView === 'Accounts' ? setIsAddingAccount(true) : currentView === 'Budget' ? setIsAddingBudget(true) : setIsAddingExpense(true)) : setCurrentView(v)} />
+      <Navbar currentView={currentView} remainingPercentage={globalMetrics.remainingPercentage} netWorth={globalMetrics.netWorth} categoryPercentages={globalMetrics.categoryPercentages} onViewChange={handleNavbarViewChange} />
       
-      {isAddingExpense && <AddExpense settings={settings} wealthItems={wealthItems} onAdd={(e) => { setExpenses(p => [...p, { ...e, id: Math.random().toString(36).substring(2, 11) }]); setIsAddingExpense(false); }} onCancel={() => setIsAddingExpense(false)} />}
-      {isAddingAccount && <AddAccount settings={settings} onSave={(acc) => { setWealthItems(p => [...p, { ...acc, id: Math.random().toString(36).substring(2, 11) }]); setIsAddingAccount(false); }} onCancel={() => setIsAddingAccount(false)} />}
-      {isAddingBill && <AddBill settings={settings} wealthItems={wealthItems} onAddBills={(newBills) => { setBills(p => [...p, ...newBills]); setIsAddingBill(false); }} onCancel={() => setIsAddingBill(false)} />}
-      
-      {(isAddingBudget || editingBudget) && (
-        <BudgetGoalModal 
-          settings={settings}
-          expenses={expenses}
-          initialData={editingBudget}
-          onSave={(item) => { setBudgetItems(p => [...p, { ...item, id: Math.random().toString(36).substring(2, 11) }]); setIsAddingBudget(false); showToast("Capital target established"); }}
-          onUpdate={(id, updates) => { setBudgetItems(p => p.map(b => b.id === id ? { ...b, ...updates } : b)); setEditingBudget(null); showToast("Target recalibrated"); }}
-          onDelete={(id) => { setBudgetItems(p => p.filter(b => b.id !== id)); setEditingBudget(null); showToast("Target decommissioned"); }}
-          onCancel={() => { setIsAddingBudget(false); setEditingBudget(null); }}
-          viewDate={viewDate}
-        />
-      )}
-
-      {isAddingTransfer && <AddTransfer settings={settings} wealthItems={wealthItems} onTransfer={(f, t, a, d, n) => { 
+      {/* ADD/EDIT MODALS */}
+      {(isAddingExpense || (editingRecord && !editingRecord.mode && !editingRecord.recordType?.includes('income') && !editingRecord.dueDate)) && <AddExpense settings={settings} wealthItems={wealthItems} initialData={editingRecord} onAdd={(e) => { setExpenses(p => [...p, { ...e, id: Math.random().toString(36).substring(2, 11) }]); setIsAddingExpense(false); showToast("Expense added."); }} onUpdate={(id, updates) => { handleUpdateExpense(id, updates); setEditingRecord(null); }} onDelete={(id) => { setExpenses(p => p.filter(e => e.id !== id)); setEditingRecord(null); }} onCancel={() => { setIsAddingExpense(false); setEditingRecord(null); }} />}
+      {(isAddingIncome || (editingRecord && editingRecord.recordType === 'income')) && <AddIncome settings={settings} wealthItems={wealthItems} initialData={editingRecord} onAdd={(i) => { setIncomes(p => [...p, { ...i, id: Math.random().toString(36).substring(2, 11) }]); setIsAddingIncome(false); showToast("Income added."); }} onUpdate={(id, updates) => { handleUpdateIncome(id, updates); setEditingRecord(null); }} onDelete={(id) => { setIncomes(p => p.filter(i => i.id !== id)); setEditingRecord(null); }} onCancel={() => { setIsAddingIncome(false); setEditingRecord(null); }} />}
+      {(isAddingBill || (editingRecord && editingRecord.dueDate)) && <AddBill settings={settings} wealthItems={wealthItems} initialData={editingRecord} onAddBills={(newBills) => { setBills(p => [...p, ...newBills]); setIsAddingBill(false); showToast("Bill added."); }} onUpdate={(id, updates) => { setBills(prev => prev.map(b => b.id === id ? { ...b, ...updates } : b)); setEditingRecord(null); }} onDelete={(id) => { setBills(p => p.filter(b => b.id !== id)); setEditingRecord(null); }} onCancel={() => { setIsAddingBill(false); setEditingRecord(null); }} />}
+      {(isAddingAccount || (editingRecord && editingRecord.mode === 'Account')) && <AddAccount settings={settings} initialData={editingRecord} onSave={(a) => { setWealthItems(p => [...p, { ...a, id: Math.random().toString(36).substring(2, 11) }]); setIsAddingAccount(false); showToast("Account added."); }} onUpdate={handleUpdateWealth} onDelete={(id) => { setWealthItems(p => p.filter(w => w.id !== id)); setEditingRecord(null); }} onCancel={() => { setIsAddingAccount(false); setEditingRecord(null); }} />}
+      {(isAddingTransfer || (editingRecord && editingRecord.recordType === 'transfer')) && <AddTransfer settings={settings} wealthItems={wealthItems} initialData={editingRecord} onTransfer={(f, t, a, d, n) => { 
           setWealthItems(prev => prev.map(w => { 
               if (w.id === f) return { ...w, value: w.type === 'Liability' ? w.value + a : w.value - a }; 
               if (w.id === t) return { ...w, value: w.type === 'Liability' ? w.value - a : w.value + a }; 
               return w; 
           })); 
-          setExpenses(p => [...p, { id: Math.random().toString(36).substring(2, 11), amount: a, date: d, category: 'Uncategorized', subCategory: 'Transfer', isConfirmed: true, sourceAccountId: f, merchant: 'Transfer', note: n }]);
+          setExpenses(p => [...p, { id: Math.random().toString(36).substring(2, 11), amount: a, date: d, category: 'Uncategorized', mainCategory: 'Internal', subCategory: 'Transfer', isConfirmed: true, sourceAccountId: f, merchant: 'Transfer', note: n }]);
           setIsAddingTransfer(false); 
-      }} onCancel={() => setIsAddingTransfer(false)} />}
-      
-      {isAddingRecurring && <AddRecord settings={settings} wealthItems={wealthItems} onAdd={() => {}} onAddIncome={() => {}} onAddRecurring={(r) => { setRecurringItems(p => [...p, { ...r, id: Math.random().toString(36).substring(2, 11) }]); setIsAddingRecurring(false); showToast("Cycle item established"); }} onCancel={() => setIsAddingRecurring(false)} />}
+          setEditingRecord(null);
+          showToast("Transfer completed.");
+      }} onCancel={() => { setIsAddingTransfer(false); setEditingRecord(null); }} />}
 
-      {editingRecord && (editingRecord.mode === 'Account' ? (
-        <AddAccount 
-          settings={settings}
-          onSave={() => {}}
-          onUpdate={handleUpdateWealth}
-          onDelete={(id) => { setWealthItems(p => p.filter(w => w.id !== id)); setEditingRecord(null); }}
-          onCancel={() => setEditingRecord(null)}
-          initialData={editingRecord}
-        />
-      ) : (
-        <AddRecord 
-          settings={settings} 
-          wealthItems={wealthItems} 
-          expenses={expenses}
-          initialData={editingRecord}
-          onUpdateExpense={handleUpdateExpense}
-          onUpdateIncome={handleUpdateIncome}
-          onUpdateRecurring={handleUpdateRecurring}
-          onUpdateBill={(id, updates) => setBills(prev => prev.map(b => b.id === id ? { ...b, ...updates } : b))}
-          onDelete={() => {
-            if (editingRecord.recordType === 'income') setIncomes(p => p.filter(i => i.id !== editingRecord.id));
-            else if (editingRecord.mode === 'Account') setWealthItems(p => p.filter(w => w.id !== editingRecord.id));
-            else if (editingRecord.dueDate) setBills(p => p.filter(b => b.id !== editingRecord.id));
-            else if (editingRecord.frequency && !editingRecord.dueDate) setRecurringItems(p => p.filter(r => r.id !== editingRecord.id));
-            else setExpenses(p => p.filter(e => e.id !== editingRecord.id));
-            setEditingRecord(null);
-          }}
-          onAdd={() => {}}
-          onAddIncome={() => {}}
-          onCancel={() => setEditingRecord(null)}
-        />
-      ))}
+      {(isAddingBudget || editingBudget) && <BudgetGoalModal settings={settings} expenses={expenses} initialData={editingBudget} onSave={(item) => { setBudgetItems(p => [...p, { ...item, id: Math.random().toString(36).substring(2, 11) }]); setIsAddingBudget(false); showToast("Goal added."); }} onUpdate={(id, updates) => { setBudgetItems(p => p.map(b => b.id === id ? { ...b, ...updates } : b)); setEditingBudget(null); showToast("Goal updated."); }} onDelete={(id) => { setBudgetItems(p => p.filter(b => b.id !== id)); setEditingBudget(null); showToast("Goal deleted."); }} onCancel={() => { setIsAddingBudget(false); setEditingBudget(null); }} viewDate={viewDate} />}
 
-      {settlingBill && (
-        <BillPayModal 
-          bill={settlingBill} 
-          wealthItems={wealthItems} 
-          settings={settings} 
-          onConfirm={(accId) => executeBillSettlement(settlingBill, accId)} 
-          onCancel={() => setSettlingBill(null)} 
-        />
-      )}
-
+      {settlingBill && <BillPayModal bill={settlingBill} wealthItems={wealthItems} settings={settings} onConfirm={(accId) => executeBillSettlement(settlingBill, accId)} onCancel={() => setSettlingBill(null)} />}
       {isShowingAskMe && <AskMe settings={settings} wealthItems={wealthItems} expenses={expenses} onCancel={() => setIsShowingAskMe(false)} />}
       {isShowingVersionLog && <VersionLog onClose={() => setIsShowingVersionLog(false)} />}
       {isCategorizing && <CategorizationModal settings={settings} expenses={expenses.filter(e => !e.isConfirmed)} onConfirm={handleUpdateExpense} onClose={() => setIsCategorizing(false)} />}
