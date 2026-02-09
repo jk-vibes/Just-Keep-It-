@@ -1,10 +1,10 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { UserSettings, UserProfile, AppTheme, WealthItem, DensityLevel, Category } from '../types';
 import { 
   LogOut, Palette, Download, Upload, Zap, Sparkles,
   ShieldAlert, Shield, Trash2, History, Database, Eraser,
   Maximize2, Minimize2, Layout, TrendingUp,
-  ChevronRight, Tag
+  ChevronRight, Tag, Percent
 } from 'lucide-react';
 import { triggerHaptic } from '../utils/haptics';
 import { getCurrencySymbol } from '../constants';
@@ -39,16 +39,33 @@ interface SettingsProps {
 const Settings: React.FC<SettingsProps> = ({ 
   settings, onLogout, onReset, onUpdateAppTheme, 
   onExport, onImport, onRestore, onLoadMockData, onPurgeMockData,
-  onUpdateDensity, onUpdateBaseIncome, onOpenCategoryManager
+  onUpdateDensity, onUpdateBaseIncome, onUpdateSplit, onOpenCategoryManager
 }) => {
   const [localIncome, setLocalIncome] = useState(settings.monthlyIncome.toString());
+  const [localNeeds, setLocalNeeds] = useState(settings.split.Needs.toString());
+  const [localWants, setLocalWants] = useState(settings.split.Wants.toString());
+  const [localSavings, setLocalSavings] = useState(settings.split.Savings.toString());
 
   const csvInputRef = useRef<HTMLInputElement>(null);
   const jsonInputRef = useRef<HTMLInputElement>(null);
 
-  const saveIncome = () => {
-    onUpdateBaseIncome?.(parseInt(localIncome) || 0);
-    triggerHaptic(20);
+  // Real-time update handlers
+  const handleIncomeChange = (val: string) => {
+    setLocalIncome(val);
+    const num = parseInt(val) || 0;
+    onUpdateBaseIncome?.(num);
+  };
+
+  const handleSplitChange = (key: 'Needs' | 'Wants' | 'Savings', val: string) => {
+    const setters = { Needs: setLocalNeeds, Wants: setLocalWants, Savings: setLocalSavings };
+    setters[key](val);
+
+    const newSplit = {
+      Needs: key === 'Needs' ? (parseInt(val) || 0) : (parseInt(localNeeds) || 0),
+      Wants: key === 'Wants' ? (parseInt(val) || 0) : (parseInt(localWants) || 0),
+      Savings: key === 'Savings' ? (parseInt(val) || 0) : (parseInt(localSavings) || 0),
+    };
+    onUpdateSplit(newSplit);
   };
 
   const handleCSVChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -67,7 +84,6 @@ const Settings: React.FC<SettingsProps> = ({
   const labelClass = "text-[8px] font-black text-slate-500 uppercase tracking-[0.2em] flex items-center gap-2 mb-2 px-2";
   
   const vaultButtonClass = "flex flex-col items-center justify-center gap-1.5 p-4 rounded-xl bg-brand-accent border border-brand-border active:border-brand-primary active:scale-95 transition-all group shadow-sm";
-  const inlineActionButton = "bg-brand-accent text-brand-text font-black px-4 rounded-xl text-[9px] uppercase border border-brand-border active:border-brand-primary active:scale-95 transition-all shadow-sm";
 
   return (
     <div className="animate-slide-up relative h-full flex flex-col no-scrollbar overflow-hidden">
@@ -139,16 +155,67 @@ const Settings: React.FC<SettingsProps> = ({
         </section>
 
         <section className={sectionClass}>
-          <div className="p-4 space-y-4">
-            <h3 className={labelClass}><TrendingUp size={12} /> Wealth Parameters</h3>
+          <div className="p-4 space-y-5">
+            <h3 className={labelClass}><TrendingUp size={12} /> Budget Settings</h3>
             <div className="space-y-2">
                <p className="text-[9px] font-black text-slate-500 uppercase tracking-widest ml-1">Baseline Income</p>
-               <div className="flex gap-2">
-                 <div className="relative flex-1">
-                   <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500 font-bold text-sm">{getCurrencySymbol(settings.currency)}</span>
-                   <input type="number" value={localIncome} onChange={(e) => setLocalIncome(e.target.value)} className="w-full bg-brand-accent pl-8 pr-3 py-3 rounded-xl text-xs font-black outline-none border border-brand-border text-brand-text shadow-inner" />
+               <div className="relative">
+                 <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500 font-bold text-sm">{getCurrencySymbol(settings.currency)}</span>
+                 <input 
+                   type="number" 
+                   value={localIncome} 
+                   onChange={(e) => handleIncomeChange(e.target.value)} 
+                   className="w-full bg-brand-accent pl-8 pr-3 py-3 rounded-xl text-xs font-black outline-none border border-brand-border text-brand-text shadow-inner" 
+                 />
+               </div>
+            </div>
+
+            <div className="space-y-2">
+               <div className="flex items-center justify-between ml-1">
+                 <p className="text-[9px] font-black text-slate-500 uppercase tracking-widest">Target Split (50/30/20)</p>
+                 <div className="flex items-center gap-1">
+                    <span className="text-[9px] font-black text-brand-primary uppercase">
+                       {parseInt(localNeeds) + parseInt(localWants) + parseInt(localSavings)}%
+                    </span>
                  </div>
-                 <button onClick={() => { triggerHaptic(); saveIncome(); }} className={inlineActionButton}>Apply</button>
+               </div>
+               <div className="grid grid-cols-3 gap-2">
+                  <div className="space-y-1">
+                    <span className="text-[7px] font-black text-slate-500 uppercase tracking-widest ml-1">Needs</span>
+                    <div className="relative">
+                       <input 
+                         type="number" 
+                         value={localNeeds} 
+                         onChange={(e) => handleSplitChange('Needs', e.target.value)} 
+                         className="w-full bg-brand-accent px-3 py-2.5 rounded-xl text-[10px] font-black outline-none border border-brand-border text-brand-text shadow-inner" 
+                       />
+                       <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[8px] font-bold text-slate-500">%</span>
+                    </div>
+                  </div>
+                  <div className="space-y-1">
+                    <span className="text-[7px] font-black text-slate-500 uppercase tracking-widest ml-1">Wants</span>
+                    <div className="relative">
+                       <input 
+                         type="number" 
+                         value={localWants} 
+                         onChange={(e) => handleSplitChange('Wants', e.target.value)} 
+                         className="w-full bg-brand-accent px-3 py-2.5 rounded-xl text-[10px] font-black outline-none border border-brand-border text-brand-text shadow-inner" 
+                       />
+                       <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[8px] font-bold text-slate-500">%</span>
+                    </div>
+                  </div>
+                  <div className="space-y-1">
+                    <span className="text-[7px] font-black text-slate-500 uppercase tracking-widest ml-1">Saves</span>
+                    <div className="relative">
+                       <input 
+                         type="number" 
+                         value={localSavings} 
+                         onChange={(e) => handleSplitChange('Savings', e.target.value)} 
+                         className="w-full bg-brand-accent px-3 py-2.5 rounded-xl text-[10px] font-black outline-none border border-brand-border text-brand-text shadow-inner" 
+                       />
+                       <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[8px] font-bold text-slate-500">%</span>
+                    </div>
+                  </div>
                </div>
             </div>
           </div>

@@ -2,7 +2,6 @@ import React, { useState, useMemo } from 'react';
 import { Category, UserSettings } from '../types';
 import { X, Plus, ChevronRight, Layers, Trash2 } from 'lucide-react';
 import { triggerHaptic } from '../utils/haptics';
-import { CATEGORY_COLORS } from '../constants';
 
 interface CategoryManagerProps {
   settings: UserSettings;
@@ -28,14 +27,13 @@ const CategoryManager: React.FC<CategoryManagerProps> = ({ settings, onUpdateCus
   }, [settings.customCategories]);
 
   const handleAddCategory = () => {
-    if (!newCatName) return;
+    if (!newCatName.trim()) return;
     triggerHaptic();
     const updated = { ...settings.customCategories } as any;
-    // Defaulting to 'Needs' bucket internally but keeping UI flat
     const targetBucket = 'Needs'; 
     if (!updated[targetBucket]) updated[targetBucket] = {};
-    if (!updated[targetBucket][newCatName]) {
-      updated[targetBucket][newCatName] = ['General'];
+    if (!updated[targetBucket][newCatName.trim()]) {
+      updated[targetBucket][newCatName.trim()] = ['General'];
       onUpdateCustomCategories(updated);
       setNewCatName('');
     }
@@ -50,11 +48,11 @@ const CategoryManager: React.FC<CategoryManagerProps> = ({ settings, onUpdateCus
   };
 
   const handleAddSubCategory = (bucket: Category, catName: string) => {
-    if (!newSubCatName) return;
+    if (!newSubCatName.trim()) return;
     triggerHaptic();
     const updated = { ...settings.customCategories } as any;
-    if (!updated[bucket][catName].includes(newSubCatName)) {
-      updated[bucket][catName].push(newSubCatName);
+    if (!updated[bucket][catName].includes(newSubCatName.trim())) {
+      updated[bucket][catName].push(newSubCatName.trim());
       onUpdateCustomCategories(updated);
       setNewSubCatName('');
     }
@@ -73,38 +71,36 @@ const CategoryManager: React.FC<CategoryManagerProps> = ({ settings, onUpdateCus
         <div className="px-6 py-4 border-b border-brand-border flex justify-between items-center shrink-0">
            <div>
               <h3 className="text-xs font-black uppercase tracking-widest text-brand-text">Category Master</h3>
-              <p className="text-[7px] font-bold text-slate-500 uppercase tracking-widest mt-0.5">Registry Management</p>
+              <p className="text-[7px] font-bold text-slate-500 uppercase tracking-widest mt-0.5">Taxonomy Protocol</p>
            </div>
            <button onClick={onClose} className="p-2 bg-brand-accent rounded-full text-slate-400 active:scale-90"><X size={18} /></button>
         </div>
 
-        <div className="flex-1 overflow-y-auto no-scrollbar p-4 space-y-4">
-           <div className="bg-brand-accent/30 p-4 rounded-2xl border border-brand-border space-y-3">
-              <p className="text-[8px] font-black text-slate-500 uppercase tracking-widest">Create New Classification</p>
-              
-              <div className="flex gap-2">
-                  <input 
-                    value={newCatName} 
-                    onChange={(e) => setNewCatName(e.target.value)} 
-                    placeholder="Category Name (e.g. Wellness)" 
-                    className="flex-1 bg-brand-surface border border-brand-border px-4 py-3 rounded-xl text-[10px] font-black outline-none focus:border-brand-primary/30" 
-                  />
-                  <button onClick={handleAddCategory} className="bg-brand-primary text-brand-headerText px-4 rounded-xl active:scale-95 transition-all">
-                    <Plus size={18} strokeWidth={3} />
-                  </button>
-              </div>
+        <div className="flex-1 overflow-y-auto no-scrollbar p-4 space-y-3">
+           {/* Streamlined Add Category Row */}
+           <div className="flex gap-2 mb-2">
+              <input 
+                value={newCatName} 
+                onChange={(e) => setNewCatName(e.target.value)} 
+                placeholder="New Category Name..." 
+                className="flex-1 bg-brand-accent border border-brand-border px-4 py-3 rounded-2xl text-[10px] font-black outline-none focus:border-brand-primary/30 text-brand-text shadow-inner" 
+              />
+              <button 
+                onClick={handleAddCategory} 
+                className="bg-brand-primary text-brand-headerText px-5 rounded-2xl active:scale-95 transition-all shadow-lg flex items-center justify-center"
+              >
+                <Plus size={20} strokeWidth={4} />
+              </button>
            </div>
 
-           <div className="divide-y divide-brand-border border border-brand-border rounded-2xl overflow-hidden bg-brand-accent/10">
+           <div className="divide-y divide-brand-border border border-brand-border rounded-[24px] overflow-hidden bg-brand-accent/5">
               {flatCategories.map(item => (
                 <div key={`${item.bucket}-${item.name}`} className="animate-kick">
                    <div className="flex items-center justify-between p-3 group">
-                      <button onClick={() => setActiveCategory(activeCategory === item.name ? null : item.name)} className="flex items-center gap-3 flex-1 text-left">
-                         <div className="p-1.5 rounded-lg bg-indigo-500/10 text-indigo-500 shrink-0">
-                            <Layers size={14} />
-                         </div>
+                      <button onClick={() => { triggerHaptic(); setActiveCategory(activeCategory === item.name ? null : item.name); }} className="flex items-center gap-3 flex-1 text-left">
+                         <Layers size={14} className="text-indigo-500 shrink-0 opacity-60" />
                          <div className="flex flex-col">
-                            <span className="text-[11px] font-black uppercase text-brand-text">{item.name}</span>
+                            <span className="text-[11px] font-black uppercase text-brand-text tracking-tight">{item.name}</span>
                             <span className="text-[6px] font-bold text-slate-500 uppercase tracking-widest">{item.subCategories.length} Active Nodes</span>
                          </div>
                       </button>
@@ -117,12 +113,17 @@ const CategoryManager: React.FC<CategoryManagerProps> = ({ settings, onUpdateCus
                    {activeCategory === item.name && (
                      <div className="bg-brand-surface/40 p-4 border-t border-brand-border space-y-3">
                         <div className="flex gap-2">
-                           <input value={newSubCatName} onChange={(e) => setNewSubCatName(e.target.value)} placeholder="Add Sub-Category..." className="flex-1 bg-brand-surface border border-brand-border px-3 py-2 rounded-lg text-[9px] font-black outline-none" />
-                           <button onClick={() => handleAddSubCategory(item.bucket, item.name)} className="bg-brand-accent text-brand-text px-3 rounded-lg"><Plus size={14} /></button>
+                           <input 
+                             value={newSubCatName} 
+                             onChange={(e) => setNewSubCatName(e.target.value)} 
+                             placeholder="Add Sub-Category..." 
+                             className="flex-1 bg-brand-accent border border-brand-border px-3 py-2 rounded-xl text-[9px] font-black outline-none text-brand-text shadow-inner" 
+                           />
+                           <button onClick={() => handleAddSubCategory(item.bucket, item.name)} className="bg-brand-primary text-brand-headerText px-3 rounded-xl shadow-md active:scale-90"><Plus size={14} strokeWidth={3} /></button>
                         </div>
-                        <div className="flex flex-wrap gap-2">
+                        <div className="flex flex-wrap gap-1.5">
                            {item.subCategories.map(sub => (
-                             <div key={sub} className="flex items-center gap-2 bg-brand-accent border border-brand-border pl-2 pr-1 py-1 rounded-md">
+                             <div key={sub} className="flex items-center gap-1.5 bg-brand-accent border border-brand-border pl-2 pr-1 py-1 rounded-lg">
                                 <span className="text-[8px] font-black uppercase text-slate-400">{sub}</span>
                                 <button onClick={() => handleDeleteSubCategory(item.bucket, item.name, sub)} className="p-1 hover:text-rose-500 transition-colors"><X size={10} /></button>
                              </div>
