@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { Category, BudgetRule, UserSettings } from '../types';
 import { X, Check, Zap, ChevronDown, Trash2 } from 'lucide-react';
 import { triggerHaptic } from '../utils/haptics';
@@ -15,32 +15,49 @@ interface AddRuleProps {
 const AddRule: React.FC<AddRuleProps> = ({ settings, onAdd, onUpdate, onDelete, onCancel, initialData }) => {
   const isEditing = !!(initialData && initialData.id);
   const [keyword, setKeyword] = useState(initialData?.keyword || '');
-  const [bucket, setBucket] = useState<Category>(initialData?.category || 'Needs');
   const [mainCategory, setMainCategory] = useState(initialData?.mainCategory || '');
   const [subCategory, setSubCategory] = useState(initialData?.subCategory || 'General');
 
-  const categoryTree = settings.customCategories || {} as any;
-  const categoriesInBucket = useMemo(() => Object.keys(categoryTree[bucket] || {}), [bucket, categoryTree]);
-  const subCategoriesInCat = useMemo(() => categoryTree[bucket]?.[mainCategory] || ['General'], [bucket, mainCategory, categoryTree]);
+  // Unified list of categories from all buckets
+  const allMainCategories = useMemo(() => {
+    const list: { name: string; bucket: Category }[] = [];
+    if (!settings.customCategories) return list;
+    Object.entries(settings.customCategories).forEach(([bucket, cats]) => {
+      Object.keys(cats).forEach(catName => {
+        list.push({ name: catName, bucket: bucket as Category });
+      });
+    });
+    return list.sort((a, b) => a.name.localeCompare(b.name));
+  }, [settings.customCategories]);
 
-  useMemo(() => {
-    if (!mainCategory || !categoriesInBucket.includes(mainCategory)) {
-        setMainCategory(categoriesInBucket[0] || '');
+  // Determine current bucket based on selected main category
+  const selectedBucket = useMemo(() => {
+    return allMainCategories.find(c => c.name === mainCategory)?.bucket || 'Needs';
+  }, [mainCategory, allMainCategories]);
+
+  const subCategoriesInCat = useMemo(() => {
+    if (!settings.customCategories) return ['General'];
+    return settings.customCategories[selectedBucket]?.[mainCategory] || ['General'];
+  }, [selectedBucket, mainCategory, settings.customCategories]);
+
+  useEffect(() => {
+    if (!mainCategory && allMainCategories.length > 0) {
+      setMainCategory(allMainCategories[0].name);
     }
-  }, [bucket, categoriesInBucket, mainCategory]);
+  }, [allMainCategories, mainCategory]);
 
-  useMemo(() => {
+  useEffect(() => {
     if (!subCategory || !subCategoriesInCat.includes(subCategory)) {
         setSubCategory(subCategoriesInCat[0] || 'General');
     }
   }, [mainCategory, subCategoriesInCat, subCategory]);
 
   const handleSubmit = () => {
-    if (!keyword.trim()) return;
+    if (!keyword.trim() || !mainCategory) return;
     triggerHaptic(20);
     const payload = { 
       keyword: keyword.trim(), 
-      category: bucket, 
+      category: selectedBucket, 
       mainCategory, 
       subCategory 
     };
@@ -85,27 +102,12 @@ const AddRule: React.FC<AddRuleProps> = ({ settings, onAdd, onUpdate, onDelete, 
           </div>
 
           <div className="space-y-3 pt-2">
-            <div className="space-y-0.5">
-              <span className={labelClass}>Target Bucket</span>
-              <div className="flex bg-brand-accent p-1 rounded-xl gap-1 border border-brand-border shadow-inner">
-                {(['Needs', 'Wants', 'Savings', 'Avoids'] as Category[]).map(b => (
-                  <button 
-                    key={b}
-                    onClick={() => { triggerHaptic(); setBucket(b); }}
-                    className={`flex-1 py-1.5 rounded-lg text-[7px] font-black uppercase tracking-widest transition-all ${bucket === b ? 'bg-brand-surface text-brand-text shadow-sm' : 'text-slate-500'}`}
-                  >
-                    {b}
-                  </button>
-                ))}
-              </div>
-            </div>
-
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-0.5">
                 <span className={labelClass}>Category</span>
                 <div className="relative">
                   <select value={mainCategory} onChange={(e) => setMainCategory(e.target.value)} className={selectClasses}>
-                    {categoriesInBucket.map(cat => <option key={cat} value={cat}>{cat}</option>)}
+                    {allMainCategories.map(cat => <option key={cat.name} value={cat.name}>{cat.name}</option>)}
                   </select>
                   <ChevronDown size={10} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
                 </div>

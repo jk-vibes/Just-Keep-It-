@@ -84,41 +84,46 @@ const Toast: React.FC<{
   }, [onClose, duration]);
 
   const isMoon = theme === 'Moon';
+  const isBatman = theme === 'Batman';
 
   const config = {
     success: { 
       icon: <CheckCircle2 size={12} />, 
       gradient: isMoon ? 'from-black to-slate-700' : 'from-emerald-600 to-emerald-800',
-      label: 'SYSTEM UPDATE'
+      label: 'SYSTEM UPDATE',
+      textColor: 'text-white'
     },
     error: { 
       icon: <AlertCircle size={12} />, 
       gradient: isMoon ? 'from-black to-slate-700' : 'from-rose-600 to-rose-800',
-      label: 'PROTOCOL ALERT'
+      label: 'PROTOCOL ALERT',
+      textColor: 'text-white'
     },
     info: { 
       icon: <Info size={12} />, 
-      gradient: isMoon ? 'from-black to-slate-700' : 'from-indigo-600 to-indigo-800',
-      label: 'REGISTRY SIGNAL'
+      gradient: (isMoon || isBatman) ? 'from-brand-primary to-brand-secondary' : 'from-indigo-600 to-indigo-800',
+      label: 'REGISTRY SIGNAL',
+      textColor: (isMoon || isBatman) ? 'text-brand-headerText' : 'text-white'
     },
     advice: { 
       icon: <UserCircle2 size={12} />, 
       gradient: isMoon ? 'from-black to-slate-700' : 'from-brand-primary to-brand-secondary',
-      label: "FATHER'S PROTOCOL"
+      label: "FATHER'S PROTOCOL",
+      textColor: (isMoon || isBatman) ? 'text-brand-headerText' : 'text-white'
     }
   };
 
-  const { icon, gradient, label } = config[type];
+  const { icon, gradient, label, textColor } = config[type];
 
   return (
     <div className="fixed bottom-[10px] left-4 z-[400] animate-slide-up pointer-events-none">
       <div className={`w-[260px] pointer-events-auto overflow-hidden bg-[#0c0c0c] border border-white/10 shadow-[0_20px_50px_rgba(0,0,0,0.5)] flex flex-col rounded-2xl`}>
         <div className={`px-3 py-1.5 bg-gradient-to-r ${gradient} flex items-center justify-between`}>
           <div className="flex items-center gap-2">
-            <span className="text-white opacity-80">{icon}</span>
-            <span className="text-[7.5px] font-black text-white uppercase tracking-[0.3em] drop-shadow-sm">{label}</span>
+            <span className={`${textColor} opacity-80`}>{icon}</span>
+            <span className={`text-[7.5px] font-black ${textColor} uppercase tracking-[0.3em] drop-shadow-sm`}>{label}</span>
           </div>
-          <button onClick={onClose} className="text-white/40 hover:text-white transition-colors">
+          <button onClick={onClose} className={`${textColor} opacity-40 hover:opacity-100 transition-colors`}>
             <X size={12} />
           </button>
         </div>
@@ -181,10 +186,25 @@ const App: React.FC = () => {
   const [fatherlyAdvice, setFatherlyAdvice] = useState<string | null>(null);
   const [lastAdviceFetch, setLastAdviceFetch] = useState<number>(0);
 
+  const addNotification = useCallback((notif: Omit<Notification, 'timestamp' | 'read'> & { id?: string }) => {
+    const id = notif.id || Math.random().toString(36).substring(2, 11);
+    setNotifications(prev => [{ ...notif, id, timestamp: new Date().toISOString(), read: false }, ...prev.slice(0, 100)]);
+  }, []);
+
   const showToast = useCallback((message: string, type: 'success' | 'error' | 'info' | 'advice' = 'success', customDuration?: number) => { 
     const duration = customDuration || (type === 'advice' ? 30000 : 10000);
     setToast({ message, type, duration }); 
-  }, []);
+    
+    // Automatically log into history for info and advice
+    if (type === 'info' || type === 'advice') {
+      addNotification({
+        type: type === 'advice' ? 'AI' : 'Activity',
+        title: type === 'advice' ? "Neural Insight" : "Registry Update",
+        message,
+        severity: type === 'advice' ? 'info' : 'success'
+      });
+    }
+  }, [addNotification]);
 
   const fetchAdvice = useCallback(async () => {
     if (Date.now() - lastAdviceFetch < 300000) return;
@@ -315,11 +335,6 @@ const App: React.FC = () => {
     setIsResetting(true); 
     localStorage.clear();
     window.location.href = window.location.origin;
-  }, []);
-
-  const addNotification = useCallback((notif: Omit<Notification, 'timestamp' | 'read'> & { id?: string }) => {
-    const id = notif.id || Math.random().toString(36).substring(2, 11);
-    setNotifications(prev => [{ ...notif, id, timestamp: new Date().toISOString(), read: false }, ...prev.slice(0, 100)]);
   }, []);
 
   const visibleWealth = useMemo(() => {

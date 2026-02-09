@@ -12,7 +12,6 @@ interface CategoryManagerProps {
 
 const CategoryManager: React.FC<CategoryManagerProps> = ({ settings, onUpdateCustomCategories, onClose }) => {
   const [newCatName, setNewCatName] = useState('');
-  const [selectedBucket, setSelectedBucket] = useState<Category>('Needs');
   const [newSubCatName, setNewSubCatName] = useState('');
   const [activeCategory, setActiveCategory] = useState<string | null>(null);
 
@@ -32,9 +31,11 @@ const CategoryManager: React.FC<CategoryManagerProps> = ({ settings, onUpdateCus
     if (!newCatName) return;
     triggerHaptic();
     const updated = { ...settings.customCategories } as any;
-    if (!updated[selectedBucket]) updated[selectedBucket] = {};
-    if (!updated[selectedBucket][newCatName]) {
-      updated[selectedBucket][newCatName] = ['General'];
+    // Defaulting to 'Needs' bucket internally but keeping UI flat
+    const targetBucket = 'Needs'; 
+    if (!updated[targetBucket]) updated[targetBucket] = {};
+    if (!updated[targetBucket][newCatName]) {
+      updated[targetBucket][newCatName] = ['General'];
       onUpdateCustomCategories(updated);
       setNewCatName('');
     }
@@ -81,19 +82,6 @@ const CategoryManager: React.FC<CategoryManagerProps> = ({ settings, onUpdateCus
            <div className="bg-brand-accent/30 p-4 rounded-2xl border border-brand-border space-y-3">
               <p className="text-[8px] font-black text-slate-500 uppercase tracking-widest">Create New Classification</p>
               
-              {/* RESTORED BUCKET SELECTION */}
-              <div className="flex bg-brand-accent/40 p-1 rounded-xl gap-1 border border-white/5">
-                {(['Needs', 'Wants', 'Savings', 'Avoids'] as Category[]).map(b => (
-                  <button 
-                    key={b}
-                    onClick={() => { triggerHaptic(); setSelectedBucket(b); }}
-                    className={`flex-1 py-1.5 rounded-lg text-[7px] font-black uppercase tracking-widest transition-all ${selectedBucket === b ? 'bg-brand-primary text-brand-headerText shadow-md' : 'text-slate-500 hover:text-slate-300'}`}
-                  >
-                    {b}
-                  </button>
-                ))}
-              </div>
-
               <div className="flex gap-2">
                   <input 
                     value={newCatName} 
@@ -112,12 +100,12 @@ const CategoryManager: React.FC<CategoryManagerProps> = ({ settings, onUpdateCus
                 <div key={`${item.bucket}-${item.name}`} className="animate-kick">
                    <div className="flex items-center justify-between p-3 group">
                       <button onClick={() => setActiveCategory(activeCategory === item.name ? null : item.name)} className="flex items-center gap-3 flex-1 text-left">
-                         <div className="p-1.5 rounded-lg bg-opacity-10 shrink-0" style={{ backgroundColor: `${CATEGORY_COLORS[item.bucket]}20`, color: CATEGORY_COLORS[item.bucket] }}>
+                         <div className="p-1.5 rounded-lg bg-indigo-500/10 text-indigo-500 shrink-0">
                             <Layers size={14} />
                          </div>
                          <div className="flex flex-col">
                             <span className="text-[11px] font-black uppercase text-brand-text">{item.name}</span>
-                            <span className="text-[6px] font-bold text-slate-500 uppercase tracking-widest">{item.bucket} • {item.subCategories.length} Nodes</span>
+                            <span className="text-[6px] font-bold text-slate-500 uppercase tracking-widest">{item.subCategories.length} Active Nodes</span>
                          </div>
                       </button>
                       <div className="flex items-center gap-1">

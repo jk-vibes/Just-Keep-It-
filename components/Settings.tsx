@@ -38,29 +38,13 @@ interface SettingsProps {
 
 const Settings: React.FC<SettingsProps> = ({ 
   settings, onLogout, onReset, onUpdateAppTheme, 
-  onUpdateSplit, onExport, onImport, onRestore, onLoadMockData, onPurgeMockData,
+  onExport, onImport, onRestore, onLoadMockData, onPurgeMockData,
   onUpdateDensity, onUpdateBaseIncome, onOpenCategoryManager
 }) => {
   const [localIncome, setLocalIncome] = useState(settings.monthlyIncome.toString());
-  const [localSplit, setLocalSplit] = useState(settings.split);
 
   const csvInputRef = useRef<HTMLInputElement>(null);
   const jsonInputRef = useRef<HTMLInputElement>(null);
-
-  const handleSplitChange = (key: keyof typeof localSplit, val: string) => {
-    const num = parseInt(val) || 0;
-    const newSplit = { ...localSplit, [key]: num };
-    setLocalSplit(newSplit);
-  };
-
-  const saveSplits = () => {
-    if (localSplit.Needs + localSplit.Wants + localSplit.Savings === 100) {
-      onUpdateSplit(localSplit);
-      triggerHaptic(20);
-    } else {
-      alert("Allocations must sum exactly to 100%");
-    }
-  };
 
   const saveIncome = () => {
     onUpdateBaseIncome?.(parseInt(localIncome) || 0);
@@ -82,8 +66,8 @@ const Settings: React.FC<SettingsProps> = ({
   const sectionClass = "bg-brand-surface border border-brand-border rounded-xl mb-2 overflow-hidden shadow-sm";
   const labelClass = "text-[8px] font-black text-slate-500 uppercase tracking-[0.2em] flex items-center gap-2 mb-2 px-2";
   
-  // Standard non-highlighted button class with border-only active state
   const vaultButtonClass = "flex flex-col items-center justify-center gap-1.5 p-4 rounded-xl bg-brand-accent border border-brand-border active:border-brand-primary active:scale-95 transition-all group shadow-sm";
+  const inlineActionButton = "bg-brand-accent text-brand-text font-black px-4 rounded-xl text-[9px] uppercase border border-brand-border active:border-brand-primary active:scale-95 transition-all shadow-sm";
 
   return (
     <div className="animate-slide-up relative h-full flex flex-col no-scrollbar overflow-hidden">
@@ -91,7 +75,7 @@ const Settings: React.FC<SettingsProps> = ({
         <div className="absolute top-0 right-0 p-2 opacity-10 text-brand-headerText"><Shield size={40} /></div>
         <div className="flex items-center gap-2.5 relative z-10 w-full px-1">
           <div className="flex-1 min-w-0">
-            <h1 className="text-[14px] font-black text-brand-headerText tracking-tight leading-none truncate uppercase">Registry Settings</h1>
+            <h1 className="text-[14px] font-black text-brand-headerText tracking-tight leading-none truncate uppercase">Settings</h1>
             <p className="text-[7px] font-bold text-brand-headerText/50 uppercase tracking-[0.2em] mt-0.5 truncate">Maintenance & Protocol</p>
           </div>
         </div>
@@ -164,23 +148,8 @@ const Settings: React.FC<SettingsProps> = ({
                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500 font-bold text-sm">{getCurrencySymbol(settings.currency)}</span>
                    <input type="number" value={localIncome} onChange={(e) => setLocalIncome(e.target.value)} className="w-full bg-brand-accent pl-8 pr-3 py-3 rounded-xl text-xs font-black outline-none border border-brand-border text-brand-text shadow-inner" />
                  </div>
-                 <button onClick={saveIncome} className="bg-brand-accentUi text-brand-headerText font-black px-4 rounded-xl text-[9px] uppercase shadow-sm active:scale-95 transition-all">Apply</button>
+                 <button onClick={() => { triggerHaptic(); saveIncome(); }} className={inlineActionButton}>Apply</button>
                </div>
-            </div>
-            <div className="space-y-3 pt-2">
-               <p className="text-[9px] font-black text-slate-500 uppercase tracking-widest ml-1">Capital Allocation</p>
-               <div className="grid grid-cols-3 gap-2">
-                  {Object.keys(localSplit).map((key) => (
-                    <div key={key} className="space-y-1">
-                       <span className="text-[7px] font-black text-slate-500 uppercase text-center block">{key}</span>
-                       <div className="relative">
-                          <input type="number" value={localSplit[key as keyof typeof localSplit]} onChange={(e) => handleSplitChange(key as any, e.target.value)} className="w-full bg-brand-accent p-2 pr-5 rounded-xl text-center text-[12px] font-black border border-brand-border text-brand-text shadow-inner" />
-                          <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[8px] text-slate-600 font-bold">%</span>
-                       </div>
-                    </div>
-                  ))}
-               </div>
-               <button onClick={saveSplits} className="w-full mt-2 bg-brand-accent text-brand-text py-3 rounded-xl text-[9px] font-black uppercase border border-brand-border active:border-brand-primary active:scale-[0.98] shadow-sm">Lock Protocols</button>
             </div>
           </div>
         </section>

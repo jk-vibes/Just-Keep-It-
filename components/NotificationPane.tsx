@@ -35,8 +35,8 @@ const NotificationPane: React.FC<NotificationPaneProps> = ({ notifications, onCl
       {/* Updated Header with themed gradient */}
       <div className="bg-gradient-to-r from-brand-primary to-brand-secondary px-3 py-2 rounded-xl mb-1 mx-0.5 shadow-md h-[50px] flex items-center justify-between shrink-0 border border-white/5">
         <div className="flex flex-col px-1">
-          <h1 className="text-[14px] font-black text-brand-headerText uppercase leading-none tracking-tight">Alerts</h1>
-          <p className="text-[7px] font-bold text-brand-headerText/50 uppercase tracking-[0.2em] mt-1">Smart Feed • 7 Day Archival</p>
+          <h1 className="text-[14px] font-black text-brand-headerText uppercase leading-none tracking-tight">Notification History</h1>
+          <p className="text-[7px] font-bold text-brand-headerText/50 uppercase tracking-[0.2em] mt-1">Strategic Audit Log • Persistent</p>
         </div>
         <div className="flex gap-1.5">
            <button onClick={() => { triggerHaptic(); onClear(); }} className="p-2 bg-white/10 hover:bg-white/20 rounded-xl text-brand-headerText transition-all active:scale-90">
@@ -57,7 +57,7 @@ const NotificationPane: React.FC<NotificationPaneProps> = ({ notifications, onCl
               <BellOff size={40} strokeWidth={1} />
             </div>
             <div>
-              <p className="text-[10px] font-black text-slate-500 uppercase tracking-[0.4em]">Protocol Quiet</p>
+              <p className="text-[10px] font-black text-slate-500 uppercase tracking-[0.4em]">Registry History Empty</p>
             </div>
           </div>
         ) : (

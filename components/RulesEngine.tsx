@@ -39,12 +39,12 @@ const RulesEngine: React.FC<RulesEngineProps> = ({ rules, onAddRule, onEditRule,
             rules.map(rule => (
               <div key={rule.id} className="p-4 flex items-center justify-between group hover:bg-brand-accent/30 transition-colors">
                 <div className="flex items-center gap-3">
-                  <div className="p-2.5 rounded-xl flex items-center justify-center text-white" style={{ backgroundColor: CATEGORY_COLORS[rule.category] }}>
+                  <div className="p-2.5 rounded-xl flex items-center justify-center bg-indigo-500 text-white">
                     <Zap size={14} />
                   </div>
                   <div>
                     <h4 className="font-black text-brand-text text-xs uppercase tracking-tight">{rule.keyword}</h4>
-                    <p className="text-[7px] font-black text-slate-500 uppercase tracking-widest mt-0.5">{rule.category} • {rule.mainCategory} • {rule.subCategory}</p>
+                    <p className="text-[7px] font-black text-slate-500 uppercase tracking-widest mt-0.5">{rule.mainCategory} • {rule.subCategory}</p>
                   </div>
                 </div>
                 <div className="flex items-center gap-1">

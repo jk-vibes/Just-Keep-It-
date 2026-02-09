@@ -347,7 +347,7 @@ const AddExpense: React.FC<AddExpenseProps> = ({ settings, wealthItems, onAdd, o
               disabled={!amount || !mainCategory}
               className="flex-1 py-4 bg-brand-primary text-brand-headerText font-black rounded-2xl shadow-xl active:scale-[0.98] transition-all flex items-center justify-center gap-3 uppercase tracking-[0.15em] text-[10px] disabled:opacity-50"
             >
-              <Check size={18} strokeWidth={4} /> {isEditing ? 'Update Entry' : 'Lock Transaction'}
+              <Check size={18} strokeWidth={4} /> {isEditing ? 'Update Entry' : 'Confirm Expense'}
             </button>
           </div>
         </div>
