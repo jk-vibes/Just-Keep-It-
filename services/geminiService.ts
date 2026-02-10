@@ -71,6 +71,54 @@ async function withRetry<T>(fn: () => Promise<T>, retries = 3, delay = 15000): P
   });
 }
 
+/**
+ * Intelligent Batch Ingestion Processor
+ * Analyzes raw transaction data to generate clean metadata and notes.
+ */
+export async function batchProcessNewTransactions(
+  items: Array<{ merchant: string, amount: number, date: string }>
+): Promise<Array<{ merchant: string, category: Category, mainCategory: string, subCategory: string, intelligentNote: string }>> {
+  const prompt = `
+    Analyze these ${items.length} financial transactions. 
+    For each, provide:
+    1. A clean, professional merchant name.
+    2. Category (Needs/Wants/Savings/Avoids).
+    3. Main Category & Sub Category from standard finance taxonomy.
+    4. An "Intelligent Note": A clever, concise 5-8 word description based on the merchant pattern (e.g. "Weekly organic grocery restock", "Digital streaming services subscription").
+
+    Data: ${JSON.stringify(items)}
+
+    Return a JSON array matching input order.
+  `;
+
+  try {
+    const response = await withRetry<GenerateContentResponse>(() => ai.models.generateContent({
+      model: 'gemini-3-flash-preview',
+      contents: prompt,
+      config: {
+        responseMimeType: "application/json",
+        responseSchema: {
+          type: Type.ARRAY,
+          items: {
+            type: Type.OBJECT,
+            properties: {
+              merchant: { type: Type.STRING },
+              category: { type: Type.STRING },
+              mainCategory: { type: Type.STRING },
+              subCategory: { type: Type.STRING },
+              intelligentNote: { type: Type.STRING }
+            },
+            required: ["merchant", "category", "mainCategory", "subCategory", "intelligentNote"]
+          }
+        }
+      }
+    }));
+    return JSON.parse(response.text || '[]');
+  } catch (error) {
+    return [];
+  }
+}
+
 export async function generateQuickNote(merchant: string, mainCategory: string, subCategory: string): Promise<string> {
   const prompt = `Generate a very short, professional, clever one-liner description (max 8 words) for a financial transaction.
     Merchant: ${merchant}

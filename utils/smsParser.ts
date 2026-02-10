@@ -8,7 +8,10 @@ export interface ParsedEntry {
   merchant?: string;
   source?: string;
   category?: Category;
+  /* Add mainCategory, note, and intelligentNote to resolve property existence errors in Ledger and Import processors */
+  mainCategory?: string;
   subCategory?: string;
+  note?: string;
   date: string;
   incomeType?: string;
   rawContent?: string;
@@ -18,6 +21,7 @@ export interface ParsedEntry {
   wealthCategory?: WealthCategory;
   value?: number;
   name?: string;
+  intelligentNote?: string;
 }
 
 /**

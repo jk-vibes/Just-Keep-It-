@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { 
   Category, Expense, UserSettings, Frequency, 
   Income, IncomeType, WealthItem, PaymentMethod, Bill, BudgetRule, RecurringItem 
@@ -69,13 +69,14 @@ const AddRecord: React.FC<AddRecordProps> = ({
   const categoriesInBucket = useMemo(() => Object.keys(categoryTree[bucket] || {}), [bucket, categoryTree]);
   const subCategoriesInCat = useMemo(() => categoryTree[bucket]?.[mainCategory] || ['General'], [bucket, mainCategory, categoryTree]);
 
-  useMemo(() => {
+  // FIXED: Changed useMemo to useEffect for state side-effects
+  useEffect(() => {
     if (!mainCategory || !categoriesInBucket.includes(mainCategory)) {
         setMainCategory(categoriesInBucket[0] || '');
     }
   }, [bucket, categoriesInBucket, mainCategory]);
 
-  useMemo(() => {
+  useEffect(() => {
     if (!subCategory || !subCategoriesInCat.includes(subCategory)) {
         setSubCategory(subCategoriesInCat[0] || 'General');
     }

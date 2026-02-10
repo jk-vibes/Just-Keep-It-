@@ -316,7 +316,7 @@ const AddExpense: React.FC<AddExpenseProps> = ({ settings, wealthItems, onAdd, o
 
           <div className="space-y-0.5">
             <div className="flex justify-between items-center pr-1">
-               <span className={labelClass}>Source Context</span>
+               <span className={labelClass}>Notes</span>
                <button 
                  onClick={handleGenerateNote}
                  disabled={isGeneratingNote}

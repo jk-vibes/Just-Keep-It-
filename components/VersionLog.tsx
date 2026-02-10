@@ -14,6 +14,17 @@ interface LogEntry {
 
 const VERSION_HISTORY: LogEntry[] = [
   {
+    version: '1.2.6',
+    date: 'FEB 9, 2026',
+    changes: [
+      '⭐ Simplified Registry: Removed batch selection and bulk delete functionality for a more stable, focused auditing experience.',
+      '⭐ Spend Variance Engine: Integrated a side-by-side monthly comparison bar chart in the Ledger analytics view.',
+      '⭐ Allocation Labels: Enabled radial percentage labels on the pie chart for instant visibility of spending distribution.',
+      '⭐ Context Awareness: The Ledger now displays transaction notes directly in the feed to improve source auditing.',
+      'Field Refinement: Renamed "Source Context" to "Notes" across all entry forms for clearer terminology.'
+    ]
+  },
+  {
     version: '1.2.5',
     date: 'FEB 8, 2026',
     changes: [
