@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { View, Expense, BudgetRule, UserSettings, Category, UserProfile, Frequency, RecurringItem, Income, AppTheme, Notification, WealthItem, BudgetItem, Bill } from './types';
 import Dashboard from './components/Dashboard';
@@ -168,7 +169,29 @@ const App: React.FC = () => {
   }, [addNotification]);
 
   const handleUpdateExpense = useCallback((id: string, updates: Partial<Expense>) => {
-    setExpenses(prev => prev.map(e => e.id === id ? { ...e, ...updates } : e));
+    setExpenses(prev => {
+      const target = prev.find(e => e.id === id);
+      if (!target) return prev;
+      
+      // Automatic rule creation if AI upgraded or manually confirmed with merchant
+      if (updates.isAIUpgraded && updates.merchant && updates.category) {
+        setRules(currentRules => {
+          const exists = currentRules.some(r => r.keyword.toLowerCase() === updates.merchant?.toLowerCase());
+          if (!exists) {
+            return [{
+              id: Math.random().toString(36).substring(2, 11),
+              keyword: updates.merchant!,
+              category: updates.category as Category,
+              mainCategory: updates.mainCategory || 'General',
+              subCategory: updates.subCategory || 'General'
+            }, ...currentRules];
+          }
+          return currentRules;
+        });
+      }
+
+      return prev.map(e => e.id === id ? { ...e, ...updates } : e);
+    });
     showToast("Record updated.", 'success');
   }, [showToast]);
 
@@ -186,7 +209,6 @@ const App: React.FC = () => {
     showToast(`Purged ${ids.length} records.`, 'success');
   }, [showToast]);
 
-  // MOVE HOOK-BASED HANDLERS ABOVE CONDITIONAL RETURNS
   const handleAddBulkToLedger = useCallback((items: any[]) => {
     const newItems = items.map(i => ({ ...i, id: Math.random().toString(36).substring(2, 11) }));
     setExpenses(prev => [...newItems, ...prev]);
@@ -384,7 +406,6 @@ const App: React.FC = () => {
     showToast(`Successfully synchronized ${finalItems.length} records.`, 'success');
   };
 
-  // CONDITIONAL EARLY RETURNS MUST BE BELOW ALL HOOK CALLS
   if (isResetting || isLoading) return <div className="w-full h-screen bg-brand-bg flex items-center justify-center"><Loader2 className="animate-spin text-brand-primary" size={32} /></div>;
   if (!isAuthenticated) return <AuthScreen onLogin={(p) => { setUser(p); setIsAuthenticated(true); }} />;
 
@@ -432,6 +453,7 @@ const App: React.FC = () => {
             {currentView === 'Accounts' && <Accounts wealthItems={visibleWealth} expenses={visibleExpenses} incomes={visibleIncomes} bills={visibleBills} settings={settings} onUpdateWealth={(id, updates) => setWealthItems(p => p.map(w => w.id === id ? { ...w, ...updates } : w))} onDeleteWealth={(id) => setWealthItems(p => p.filter(w => w.id !== id))} onAddWealth={() => {}} onEditAccount={(a) => setEditingRecord({...a, mode: 'Account'})} onAddAccountClick={() => setIsAddingAccount(true)} onOpenCategoryManager={() => setIsShowingCategoryManager(true)} onAddTransferClick={() => setIsAddingTransfer(true)} onDeleteExpense={(id) => setExpenses(p => p.filter(e => e.id !== id))} onDeleteIncome={(id) => setIncomes(p => p.filter(i => i.id !== id))} />}
             {currentView === 'Rules' && <RulesEngine rules={rules.filter(r => settings.dataFilter === 'user' ? !r.isMock : settings.dataFilter === 'mock' ? r.isMock : true)} settings={settings} onAddRule={() => setIsAddingRule(true)} onEditRule={(r) => setEditingRule(r)} onDeleteRule={(id) => setRules(p => p.filter(r => r.id !== id))} />}
             {currentView === 'Notifications' && <NotificationPane notifications={notifications} onClose={() => setCurrentView('Dashboard')} onClear={() => setNotifications([])} isPage={true} />}
+            {/* FIXED: Removed duplicate onUpdateBaseIncome prop to resolve JSX element naming conflict. */}
             {currentView === 'Profile' && <Settings settings={settings} user={user} onLogout={() => setIsAuthenticated(false)} onReset={handleReset} onUpdateAppTheme={(t) => setSettings(s => ({ ...s, appTheme: t }))} onUpdateCurrency={(c) => setSettings(s => ({ ...s, currency: c }))} onUpdateBaseIncome={(income) => setSettings(s => ({ ...s, monthlyIncome: income }))} onUpdateSplit={(split) => setSettings(s => ({ ...s, split }))} onExport={() => {}} onImport={handleCSVImport} onRestore={() => {}} onAddBulk={() => {}} isSyncing={isSyncing} onLoadMockData={handleLoadMockData} onPurgeMockData={handlePurgeMockData} onUpdateDensity={(d) => setSettings(s => ({ ...s, density: d }))} onOpenCategoryManager={() => setIsShowingCategoryManager(true)} onToggleTheme={() => {}} onSync={() => {}} />}
           </div>
           <Footer />

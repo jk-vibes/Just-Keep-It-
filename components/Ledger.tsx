@@ -15,7 +15,9 @@ import {
   ChevronRight as ChevronRightIcon,
   Check,
   History,
-  FileText
+  FileText,
+  Copy,
+  AlertTriangle
 } from 'lucide-react';
 import { auditTransaction, refineBatchTransactions } from '../services/geminiService';
 import { parseSmsLocally } from '../utils/smsParser';
@@ -58,7 +60,15 @@ const SwipeableItem: React.FC<{
   onDelete: (id: string) => void;
   onEdit: (item: any) => void;
   onUpdateExpense?: (id: string, updates: Partial<Expense>) => void;
-  aiSuggestion?: { category: Category; mainCategory: string; subCategory: string; merchant: string; potentialAvoid?: boolean };
+  aiSuggestion?: { 
+    category: Category; 
+    mainCategory: string; 
+    subCategory: string; 
+    merchant: string; 
+    note: string;
+    potentialAvoid?: boolean; 
+    isDuplicateOf?: string;
+  };
   density: string;
   pendingBills: Bill[];
 }> = ({ item, recordType, currencySymbol, onDelete, onEdit, onUpdateExpense, aiSuggestion: initialAiSuggestion, density, pendingBills }) => {
@@ -101,6 +111,7 @@ const SwipeableItem: React.FC<{
           mainCategory: result.suggestedMainCategory,
           subCategory: result.suggestedSubCategory,
           merchant: item.merchant,
+          note: item.note, 
           potentialAvoid: result.potentialAvoid
         });
         setShowFloatingPopup(true);
@@ -117,13 +128,19 @@ const SwipeableItem: React.FC<{
     e.stopPropagation();
     triggerHaptic(40);
     if (activeAiSuggestion && onUpdateExpense) {
-      onUpdateExpense(item.id, {
-        isConfirmed: true,
-        category: activeAiSuggestion.category,
-        mainCategory: activeAiSuggestion.mainCategory,
-        subCategory: activeAiSuggestion.subCategory,
-        isAIUpgraded: true
-      });
+      if (activeAiSuggestion.isDuplicateOf) {
+        onDelete(item.id);
+      } else {
+        onUpdateExpense(item.id, {
+          isConfirmed: true,
+          category: activeAiSuggestion.category,
+          mainCategory: activeAiSuggestion.mainCategory,
+          subCategory: activeAiSuggestion.subCategory,
+          merchant: activeAiSuggestion.merchant,
+          note: activeAiSuggestion.note,
+          isAIUpgraded: true
+        });
+      }
       setShowFloatingPopup(false);
     }
   };
@@ -133,6 +150,7 @@ const SwipeableItem: React.FC<{
   const themeColor = recordType === 'income' ? '#10b981' : (recordType === 'transfer' || recordType === 'bill_payment') ? '#6366f1' : CATEGORY_COLORS[parentCategory as Category] || '#94a3b8';
 
   const isAvoidFlagged = parentCategory === 'Avoids' || activeAiSuggestion?.potentialAvoid;
+  const isDuplicate = !!activeAiSuggestion?.isDuplicateOf;
   const hasDistinctNote = item.note && item.note !== item.merchant && item.note !== item.subCategory;
 
   return (
@@ -179,6 +197,7 @@ const SwipeableItem: React.FC<{
                       {isAuditing ? <Loader2 size={isCompact ? 8 : 10} className="animate-spin text-indigo-400" /> : <Sparkles size={isCompact ? 8 : 10} />}
                     </button>
                   )}
+                  {isDuplicate && <Copy size={8} className="text-rose-400" title="Possible Duplicate" />}
                 </div>
                 {!isCompact && (
                   <div className="flex flex-col gap-0.5 mt-1">
@@ -215,16 +234,23 @@ const SwipeableItem: React.FC<{
         )}
         
         {showFloatingPopup && activeAiSuggestion && (
-           <div className="mt-2 p-2 bg-indigo-600 rounded-xl shadow-xl animate-kick border border-indigo-400/30 flex items-center justify-between">
-              <div className="flex flex-col">
-                 <p className="text-[7px] font-black text-indigo-100 uppercase tracking-widest mb-0.5">Neural Scan Suggestion</p>
-                 <p className="text-[9px] font-black text-white uppercase">{activeAiSuggestion.mainCategory} • {activeAiSuggestion.subCategory}</p>
+           <div className={`mt-2 p-2 rounded-xl shadow-xl animate-kick border flex items-center justify-between transition-colors ${isDuplicate ? 'bg-rose-600 border-rose-400/30' : 'bg-indigo-600 border-indigo-400/30'}`}>
+              <div className="flex flex-col min-w-0 mr-2">
+                 <p className="text-[7px] font-black text-white/70 uppercase tracking-widest mb-0.5">
+                    {isDuplicate ? 'Redundancy Detected' : activeAiSuggestion.potentialAvoid ? 'Tactical Avoid' : 'Neural Scan Suggestion'}
+                 </p>
+                 <p className="text-[9px] font-black text-white uppercase truncate">
+                    {isDuplicate ? 'Remove duplicate record' : `${activeAiSuggestion.mainCategory} • ${activeAiSuggestion.subCategory}`}
+                 </p>
+                 {!isDuplicate && activeAiSuggestion.note && (
+                   <p className="text-[6px] font-bold text-white/50 italic truncate">"{activeAiSuggestion.note}"</p>
+                 )}
               </div>
               <button 
                 onClick={handleApplyAiSuggestion}
-                className="bg-white text-indigo-600 px-3 py-1.5 rounded-lg text-[8px] font-black uppercase tracking-tight shadow-sm active:scale-95 transition-all"
+                className="bg-white text-indigo-600 px-3 py-1.5 rounded-lg text-[8px] font-black uppercase tracking-tight shadow-sm active:scale-95 transition-all shrink-0"
               >
-                Apply & Rule
+                {isDuplicate ? 'Purge Record' : 'Commit & Rule'}
               </button>
            </div>
         )}
@@ -353,19 +379,42 @@ const Ledger: React.FC<LedgerProps> = ({
 
   const handleBatchRefine = async () => {
     triggerHaptic();
+    // Only refine items that are not confirmed or rule-matched (Respect user edits)
+    const candidates = (baseRecords as any[]).filter(r => r.recordType === 'expense' && !r.isConfirmed && !r.isAIUpgraded && !r.ruleId);
+    
+    if (candidates.length === 0) {
+      showToast("Registry is already sorted and optimized.", "info");
+      return;
+    }
+
     setIsRefining(true);
-    const candidates = (filteredRecords as any[]).filter(r => r.recordType === 'expense' && !r.isAIUpgraded && !r.ruleId);
     try {
-      if (candidates.length > 0) {
-        const payload = candidates.map(c => ({ id: c.id, amount: Math.round(c.amount), merchant: c.merchant || 'General', note: c.note || '' }));
-        const suggestions = await refineBatchTransactions(payload);
+      const payload = candidates.map(c => ({ id: c.id, amount: Math.round(c.amount), merchant: c.merchant || 'General', note: c.note || '', date: c.date }));
+      const suggestions = await refineBatchTransactions(payload);
+      
+      if (suggestions && suggestions.length > 0) {
         const newMap = { ...batchSuggestions };
-        suggestions.forEach(s => { newMap[s.id] = { ...s, potentialAvoid: s.isAvoidSuggestion }; });
+        suggestions.forEach(s => { 
+          newMap[s.id] = { 
+            ...s, 
+            potentialAvoid: s.isAvoidSuggestion,
+            isDuplicateOf: s.isDuplicateOf
+          }; 
+        });
         setBatchSuggestions(newMap);
+        
+        const avoidCount = suggestions.filter(s => s.isAvoidSuggestion).length;
+        const dupeCount = suggestions.filter(s => s.isDuplicateOf).length;
+        showToast(`Neural Scan: ${avoidCount} Avoids, ${dupeCount} Duplicates found.`, 'info');
+        setIsShowingAISuggestionsOnly(true);
+      } else {
+        showToast("Neural scan completed. No anomalies found.", "success");
       }
-      setIsShowingAISuggestionsOnly(true);
-    } catch (e) { setIsShowingAISuggestionsOnly(true); } 
-    finally { setIsRefining(false); }
+    } catch (e) { 
+      showToast("Tactical scan interrupted. Please try again.", "error");
+    } finally { 
+      setIsRefining(false); 
+    }
   };
 
   const handleBatchImport = async (textToProcess: string) => {
@@ -410,6 +459,15 @@ const Ledger: React.FC<LedgerProps> = ({
           <button onClick={() => (triggerHaptic(), onMonthChange(1))} className="p-1 text-slate-500 active:scale-90"><ChevronRight size={16} strokeWidth={3} /></button>
         </div>
         <div className="flex items-center gap-0.5 h-full pr-1">
+           {isShowingAISuggestionsOnly && (
+             <button 
+               onClick={() => { triggerHaptic(); setIsShowingAISuggestionsOnly(false); }} 
+               className="p-1.5 rounded-lg text-rose-500 active:scale-90 transition-transform bg-rose-500/10 mr-1"
+               title="Clear Neural Filter"
+             >
+               <X size={16} strokeWidth={3} />
+             </button>
+           )}
            <button onClick={() => { triggerHaptic(); onAddIncome(); }} className="p-1.5 rounded-lg text-emerald-500 active:scale-90 transition-transform" title="Add Income"><Banknote size={18} strokeWidth={3} /></button>
            <button onClick={() => { triggerHaptic(); onAddRecord(); }} className="p-1.5 rounded-lg text-brand-accentUi active:scale-90 transition-transform" title="Add Expense"><Plus size={18} strokeWidth={3} /></button>
            <button onClick={() => { triggerHaptic(); setSearchOpen(!isSearchOpen); }} className={`p-1.5 rounded-lg transition-all ${isSearchOpen ? 'bg-indigo-600 text-white' : 'text-slate-500'}`}><Search size={16} /></button>
@@ -437,8 +495,23 @@ const Ledger: React.FC<LedgerProps> = ({
               ))}
               {filteredRecords.length === 0 && (
                 <div className="py-20 text-center flex flex-col items-center justify-center opacity-30">
-                  <FilterX size={32} strokeWidth={1} />
-                  <p className="text-[10px] font-black uppercase tracking-widest mt-4">Registry Null</p>
+                  {isShowingAISuggestionsOnly ? (
+                    <>
+                      <Check size={32} className="text-emerald-500 mb-4" />
+                      <p className="text-[10px] font-black uppercase tracking-widest">Protocol Optimization Complete</p>
+                      <button 
+                        onClick={() => setIsShowingAISuggestionsOnly(false)}
+                        className="mt-4 text-[8px] font-black text-brand-primary uppercase tracking-widest underline"
+                      >
+                        Return to Full Feed
+                      </button>
+                    </>
+                  ) : (
+                    <>
+                      <FilterX size={32} strokeWidth={1} />
+                      <p className="text-[10px] font-black uppercase tracking-widest mt-4">Registry Null</p>
+                    </>
+                  )}
                 </div>
               )}
             </div>
