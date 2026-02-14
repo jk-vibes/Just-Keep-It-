@@ -17,7 +17,7 @@ const CategorizationModal: React.FC<CategorizationModalProps> = ({ settings, exp
   const [currentIndex, setCurrentIndex] = useState(0);
   const [selectedMainCat, setSelectedMainCat] = useState<{ name: string; bucket: Category } | null>(null);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
-  const [aiSuggestion, setAiSuggestion] = useState<{ suggestedCategory: string, suggestedSubCategory: string, insight: string } | null>(null);
+  const [aiSuggestion, setAiSuggestion] = useState<{ suggestedCategory: string, suggestedMainCategory: string, suggestedSubCategory: string, insight: string } | null>(null);
   
   const current = expenses[currentIndex];
   const currencySymbol = getCurrencySymbol(settings.currency);
@@ -60,6 +60,7 @@ const CategorizationModal: React.FC<CategorizationModalProps> = ({ settings, exp
         if (result) {
           setAiSuggestion({
             suggestedCategory: result.suggestedCategory,
+            suggestedMainCategory: result.suggestedMainCategory,
             suggestedSubCategory: result.suggestedSubCategory,
             insight: result.insight
           });
@@ -86,8 +87,6 @@ const CategorizationModal: React.FC<CategorizationModalProps> = ({ settings, exp
     });
 
     setSelectedMainCat(null);
-    // Note: We don't increment index here because the parent filters confirmed items out of the list.
-    // The next item in the list will automatically become the 'current' item at index 0.
   };
 
   const handleApplySuggestion = () => {
@@ -96,14 +95,13 @@ const CategorizationModal: React.FC<CategorizationModalProps> = ({ settings, exp
       
       onConfirm(current.id, {
         category: aiSuggestion.suggestedCategory as Category,
-        mainCategory: aiSuggestion.suggestedCategory, 
+        mainCategory: aiSuggestion.suggestedMainCategory, 
         subCategory: aiSuggestion.suggestedSubCategory,
         isConfirmed: true,
         isAIUpgraded: true
       });
 
       setSelectedMainCat(null);
-      // Parent handles list filtering; next item shifts to current position.
     }
   };
 
@@ -129,7 +127,7 @@ const CategorizationModal: React.FC<CategorizationModalProps> = ({ settings, exp
 
   return (
     <div className="fixed inset-0 z-[250] bg-black/70 backdrop-blur-sm flex items-center justify-center p-3 overflow-hidden">
-      <div className="bg-brand-surface w-full max-w-sm rounded-[28px] border border-brand-border shadow-2xl flex flex-col max-h-[85vh] animate-slide-up overflow-hidden">
+      <div className="bg-brand-surface w-full max-sm rounded-[28px] border border-brand-border shadow-2xl flex flex-col max-h-[85vh] animate-slide-up overflow-hidden">
         
         <div className="px-4 py-3 border-b border-brand-border flex items-center justify-between bg-brand-accent/50 shrink-0">
           <div className="flex items-center gap-2">
@@ -201,6 +199,8 @@ const CategorizationModal: React.FC<CategorizationModalProps> = ({ settings, exp
                       <div className="text-white mb-2">
                         <div className="flex flex-wrap items-center gap-1">
                            <span className="bg-white/20 px-1.5 py-0.5 rounded-lg text-[8px] font-black uppercase tracking-tight border border-white/10">{aiSuggestion.suggestedCategory}</span>
+                           <ArrowRight size={7} className="opacity-50" />
+                           <span className="bg-white/20 px-1.5 py-0.5 rounded-lg text-[8px] font-black uppercase tracking-tight border border-white/10">{aiSuggestion.suggestedMainCategory}</span>
                            <ArrowRight size={7} className="opacity-50" />
                            <span className="bg-white/20 px-1.5 py-0.5 rounded-lg text-[8px] font-black uppercase tracking-tight border border-white/10">{aiSuggestion.suggestedSubCategory}</span>
                         </div>
