@@ -65,42 +65,6 @@ const CategoryStatCard: React.FC<CategoryStatCardProps> = ({
   );
 };
 
-const QuickDistribution: React.FC<{ 
-  distribution: Record<string, number>, 
-  wealthItems: WealthItem[], 
-  currencySymbol: string 
-}> = ({ distribution, wealthItems, currencySymbol }) => {
-  if (Object.keys(distribution).length === 0) return null;
-  
-  return (
-    <div className="flex gap-2 overflow-x-auto no-scrollbar pb-1 px-1">
-      {Object.entries(distribution).map(([accId, amount]) => {
-        const acc = wealthItems.find(w => w.id === accId);
-        if (!acc) return null;
-        return (
-          <div key={accId} className="flex items-center justify-between py-2 px-3 hover:bg-brand-accent/30 transition-colors border-b border-brand-border cursor-pointer group bg-brand-surface">
-            <div className="flex items-center gap-3">
-              <div className={`p-2 rounded-lg ${acc.type === 'Liability' ? 'bg-rose-500/10 text-rose-500' : 'bg-emerald-500/10 text-emerald-500'} transition-colors`}>
-                {acc.type === 'Liability' ? <CreditCard size={12} /> : <Landmark size={12} />}
-              </div>
-              <div className="flex flex-col min-w-0">
-                <span className="text-[10px] font-black text-brand-text truncate uppercase tracking-tight leading-none mb-1.5">
-                  {acc.alias || acc.name}
-                </span>
-                <span className="text-[7px] font-bold text-slate-500 uppercase tracking-widest leading-none">
-                  {acc.category}
-                </span>
-              </div>
-            </div>
-            {/* Cast amount to number to fix TS error: Argument of type 'unknown' is not assignable to parameter of type 'number' */}
-            <span className="text-[11px] font-black text-brand-text">{currencySymbol}{Math.round(amount as number).toLocaleString()}</span>
-          </div>
-        );
-      })}
-    </div>
-  );
-};
-
 interface BudgetPlannerProps {
   budgetItems: BudgetItem[];
   recurringItems: RecurringItem[];
@@ -163,20 +127,12 @@ const BudgetPlanner: React.FC<BudgetPlannerProps> = ({
   const billStats = useMemo(() => {
     const pending = bills.filter(b => !b.isPaid);
     const total = pending.reduce((s, b) => s + b.amount, 0);
-    const dist = pending.reduce((acc, b) => {
-      if (b.accountId) acc[b.accountId] = (acc[b.accountId] || 0) + b.amount;
-      return acc;
-    }, {} as Record<string, number>);
-    return { total, distribution: dist, list: pending.sort((a, b) => new Date(a.dueDate).getTime() - new Date(b.dueDate).getTime()) };
+    return { total, list: pending.sort((a, b) => new Date(a.dueDate).getTime() - new Date(b.dueDate).getTime()) };
   }, [bills]);
 
   const recurringStats = useMemo(() => {
     const total = recurringItems.reduce((s, r) => s + r.amount, 0);
-    const dist = recurringItems.reduce((acc, r) => {
-      if (r.accountId) acc[r.accountId] = (acc[r.accountId] || 0) + r.amount;
-      return acc;
-    }, {} as Record<string, number>);
-    return { total, distribution: dist };
+    return { total };
   }, [recurringItems]);
 
   return (
@@ -279,14 +235,9 @@ const BudgetPlanner: React.FC<BudgetPlannerProps> = ({
 
       {activeTab === 'Bills' && (
         <div className="px-0.5 space-y-3">
-          <section className="bg-brand-surface p-4 rounded-[28px] border border-brand-border shadow-sm flex items-center justify-between">
-             <div className="flex flex-col">
-                <span className="text-[8px] font-black text-slate-500 uppercase tracking-widest leading-none mb-1.5">Outstanding Load</span>
-                <h3 className="text-xl font-black text-rose-500 tracking-tighter leading-none">{currencySymbol}{billStats.total.toLocaleString()}</h3>
-             </div>
-             <div className="flex-1 ml-6 min-w-0">
-                <QuickDistribution distribution={billStats.distribution} wealthItems={wealthItems} currencySymbol={currencySymbol} />
-             </div>
+          <section className="bg-brand-surface p-5 rounded-[28px] border border-brand-border shadow-sm text-center">
+             <span className="text-[8px] font-black text-slate-500 uppercase tracking-widest leading-none mb-2 block">Outstanding Load</span>
+             <h3 className="text-2xl font-black text-rose-500 tracking-tighter leading-none">{currencySymbol}{billStats.total.toLocaleString()}</h3>
           </section>
 
           <div className="bg-brand-surface border border-brand-border rounded-[28px] overflow-hidden shadow-sm">
@@ -361,15 +312,10 @@ const BudgetPlanner: React.FC<BudgetPlannerProps> = ({
 
       {activeTab === 'Recurring' && (
         <div className="px-0.5 space-y-3">
-           <section className="bg-brand-surface p-4 rounded-[28px] border border-brand-border shadow-sm flex items-center justify-between">
-             <div className="flex flex-col">
-                <span className="text-[8px] font-black text-slate-500 uppercase tracking-widest leading-none mb-1.5">Subscription Burn</span>
-                <h3 className="text-xl font-black text-indigo-400 tracking-tighter leading-none">{currencySymbol}{recurringStats.total.toLocaleString()}</h3>
-             </div>
-             <div className="flex-1 ml-6 min-w-0">
-                <QuickDistribution distribution={recurringStats.distribution} wealthItems={wealthItems} currencySymbol={currencySymbol} />
-             </div>
-          </section>
+           <section className="bg-brand-surface p-5 rounded-[28px] border border-brand-border shadow-sm text-center">
+             <span className="text-[8px] font-black text-slate-500 uppercase tracking-widest leading-none mb-2 block">Subscription Burn</span>
+             <h3 className="text-2xl font-black text-indigo-400 tracking-tighter leading-none">{currencySymbol}{recurringStats.total.toLocaleString()}</h3>
+           </section>
 
            <div className="bg-brand-surface border border-brand-border rounded-[28px] overflow-hidden shadow-sm">
              <div className="px-5 py-4 border-b border-brand-border flex justify-between items-center bg-brand-accent/30">

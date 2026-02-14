@@ -1,7 +1,7 @@
 import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { Category, Expense, UserSettings, WealthItem, PaymentMethod, Frequency } from '../types';
 import { getCurrencySymbol } from '../constants';
-import { Check, X, ShoppingBag, Trash2, Sparkles, Loader2, ChevronDown, Search, Wand2, Command } from 'lucide-react';
+import { Check, X, ShoppingBag, Trash2, Sparkles, Loader2, ChevronDown, Search, Wand2, Command, Plus } from 'lucide-react';
 import { triggerHaptic } from '../utils/haptics';
 import { generateQuickNote, parseTransactionText } from '../services/geminiService';
 
@@ -9,10 +9,11 @@ interface AddExpenseProps {
   settings: UserSettings;
   wealthItems: WealthItem[];
   onAdd: (expense: Omit<Expense, 'id'>, frequency?: Frequency) => void;
-  onUpdate?: (id: string, updates: Partial<Expense>) => void;
+  onUpdate?: (id: string, updates: Partial<Expense>, frequency?: Frequency) => void;
   onDelete?: (id: string) => void;
   onCancel: () => void;
-  initialData?: Expense | null;
+  onRegisterCategory: (bucket: Category, main: string, sub: string) => void;
+  initialData?: Expense | any | null;
 }
 
 const Typeahead: React.FC<{
@@ -22,13 +23,18 @@ const Typeahead: React.FC<{
   suggestions: string[];
   placeholder?: string;
   icon?: React.ReactNode;
-}> = ({ label, value, onChange, suggestions, placeholder, icon }) => {
+  canCreate?: boolean;
+}> = ({ label, value, onChange, suggestions, placeholder, icon, canCreate }) => {
   const [isOpen, setIsOpen] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
 
   const filtered = useMemo(() => {
     const q = value.toLowerCase();
     return suggestions.filter(s => s.toLowerCase().includes(q));
+  }, [suggestions, value]);
+
+  const exactMatch = useMemo(() => {
+    return suggestions.some(s => s.toLowerCase() === value.toLowerCase().trim());
   }, [suggestions, value]);
 
   useEffect(() => {
@@ -61,8 +67,16 @@ const Typeahead: React.FC<{
         </div>
       </div>
       
-      {isOpen && filtered.length > 0 && (
+      {isOpen && (filtered.length > 0 || (canCreate && value.trim() && !exactMatch)) && (
         <div className="absolute z-[300] left-0 right-0 mt-1 bg-brand-surface border border-brand-border rounded-xl shadow-2xl overflow-hidden max-h-40 overflow-y-auto no-scrollbar animate-slide-up">
+          {canCreate && value.trim() && !exactMatch && (
+            <button
+              onClick={() => { onChange(value); setIsOpen(false); triggerHaptic(20); }}
+              className="w-full px-3 py-2 text-left text-[10px] font-black transition-colors border-b border-brand-border bg-indigo-500/10 text-indigo-400 flex items-center gap-2"
+            >
+              <Plus size={10} strokeWidth={4} /> Register "{value}"
+            </button>
+          )}
           {filtered.map((s) => (
             <button
               key={s}
@@ -78,19 +92,19 @@ const Typeahead: React.FC<{
   );
 };
 
-const AddExpense: React.FC<AddExpenseProps> = ({ settings, wealthItems, onAdd, onUpdate, onDelete, onCancel, initialData }) => {
+const AddExpense: React.FC<AddExpenseProps> = ({ settings, wealthItems, onAdd, onUpdate, onDelete, onCancel, onRegisterCategory, initialData }) => {
   const isEditing = !!(initialData && initialData.id);
   const currencySymbol = getCurrencySymbol(settings.currency);
   const liquidAccounts = wealthItems.filter(i => i.type === 'Investment' || i.category === 'Credit Card');
 
   const [amount, setAmount] = useState(initialData?.amount?.toString() || '');
-  const [date, setDate] = useState(initialData?.date || new Date().toISOString().split('T')[0]);
+  const [date, setDate] = useState(initialData?.date || initialData?.nextDueDate || new Date().toISOString().split('T')[0]);
   const [merchant, setMerchant] = useState(initialData?.merchant || '');
   const [note, setNote] = useState(initialData?.note || '');
-  const [mainCategory, setMainCategory] = useState(initialData?.mainCategory || '');
+  const [mainCategory, setMainCategory] = useState(initialData?.mainCategory || initialData?.category || '');
   const [subCategory, setSubCategory] = useState(initialData?.subCategory || '');
-  const [sourceAccountId, setSourceAccountId] = useState(initialData?.sourceAccountId || '');
-  const [frequency, setFrequency] = useState<Frequency>('None');
+  const [sourceAccountId, setSourceAccountId] = useState(initialData?.sourceAccountId || initialData?.accountId || '');
+  const [frequency, setFrequency] = useState<Frequency>(initialData?.frequency || 'None');
   const [isGeneratingNote, setIsGeneratingNote] = useState(false);
   
   const [isAiMode, setIsAiMode] = useState(false);
@@ -102,8 +116,8 @@ const AddExpense: React.FC<AddExpenseProps> = ({ settings, wealthItems, onAdd, o
     for (const [bucket, cats] of Object.entries(settings.customCategories)) {
       if (Object.keys(cats).includes(mainCategory)) return bucket as Category;
     }
-    return 'Needs';
-  }, [mainCategory, settings.customCategories]);
+    return initialData?.bucket || initialData?.category || 'Needs';
+  }, [mainCategory, settings.customCategories, initialData]);
 
   const allMainCategories = useMemo(() => {
     const list: string[] = [];
@@ -167,19 +181,28 @@ const AddExpense: React.FC<AddExpenseProps> = ({ settings, wealthItems, onAdd, o
   const handleSubmit = () => {
     if (!amount || !mainCategory) return;
     triggerHaptic(20);
+
+    const mCat = mainCategory.trim();
+    const sCat = (subCategory || 'General').trim();
+
+    // Register new taxonomy entries if they don't exist
+    if (!allMainCategories.includes(mCat) || !currentSubCategories.includes(sCat)) {
+       onRegisterCategory(detectedBucket, mCat, sCat);
+    }
+
     const payload = {
       amount: Math.round(parseFloat(amount)),
       date,
       category: detectedBucket,
-      mainCategory: mainCategory.trim(),
-      subCategory: (subCategory || 'General').trim(),
+      mainCategory: mCat,
+      subCategory: sCat,
       merchant: merchant.trim() || 'General',
       note: note.trim() || merchant.trim() || 'General',
       paymentMethod: 'UPI' as PaymentMethod,
       sourceAccountId,
       isConfirmed: true
     };
-    if (isEditing && onUpdate && initialData) onUpdate(initialData.id, payload);
+    if (isEditing && onUpdate && initialData) onUpdate(initialData.id, payload, frequency);
     else onAdd(payload, frequency);
     onCancel();
   };
@@ -198,7 +221,7 @@ const AddExpense: React.FC<AddExpenseProps> = ({ settings, wealthItems, onAdd, o
               <ShoppingBag size={16} strokeWidth={2.5} />
             </div>
             <div>
-              <h3 className="text-[13px] font-black uppercase tracking-tight text-white leading-none">{isEditing ? 'Modify Expense' : 'Add Expense'}</h3>
+              <h3 className="text-[13px] font-black uppercase tracking-tight text-white leading-none">{isEditing ? 'Modify Entry' : 'Add Expense'}</h3>
               <p className="text-[6px] font-black text-white/50 uppercase tracking-[0.2em] mt-0.5">Registry Protocol</p>
             </div>
           </div>
@@ -209,7 +232,6 @@ const AddExpense: React.FC<AddExpenseProps> = ({ settings, wealthItems, onAdd, o
 
         <div className="flex-1 overflow-y-auto no-scrollbar p-5 space-y-4 pb-8">
           
-          {/* LEFT-ALIGNED AMOUNT FIELD WITH AI ICON */}
           <div className="space-y-1">
             <span className={labelClass}>Transaction Amount</span>
             <div className="flex items-center gap-2 bg-brand-accent p-3 rounded-[22px] border border-brand-border shadow-inner group">
@@ -224,17 +246,18 @@ const AddExpense: React.FC<AddExpenseProps> = ({ settings, wealthItems, onAdd, o
                   className="w-full text-2xl font-black border-none outline-none focus:ring-0 bg-transparent text-brand-text tracking-tighter"
                 />
               </div>
-              <button 
-                onClick={() => { triggerHaptic(); setIsAiMode(!isAiMode); }}
-                className={`flex items-center justify-center gap-2 px-3 py-2 rounded-xl transition-all active:scale-95 ${isAiMode ? 'bg-brand-primary text-brand-headerText shadow-md' : 'bg-brand-surface text-brand-primary border border-brand-border'}`}
-              >
-                <Wand2 size={14} strokeWidth={2.5} className={isAiMode ? 'animate-pulse' : ''} />
-                <span className="text-[8px] font-black uppercase tracking-widest">Neural</span>
-              </button>
+              {!isEditing && (
+                <button 
+                  onClick={() => { triggerHaptic(); setIsAiMode(!isAiMode); }}
+                  className={`flex items-center justify-center gap-2 px-3 py-2 rounded-xl transition-all active:scale-95 ${isAiMode ? 'bg-brand-primary text-brand-headerText shadow-md' : 'bg-brand-surface text-brand-primary border border-brand-border'}`}
+                >
+                  <Wand2 size={14} strokeWidth={2.5} className={isAiMode ? 'animate-pulse' : ''} />
+                  <span className="text-[8px] font-black uppercase tracking-widest">Neural</span>
+                </button>
+              )}
             </div>
           </div>
 
-          {/* AI COMMAND INTERFACE */}
           {isAiMode && (
             <div className="bg-indigo-600 rounded-[22px] p-4 shadow-xl border border-indigo-400/30 animate-kick space-y-3">
               <div className="flex items-center gap-2">
@@ -251,7 +274,7 @@ const AddExpense: React.FC<AddExpenseProps> = ({ settings, wealthItems, onAdd, o
               <button 
                 onClick={handleAiCapture}
                 disabled={!aiPrompt.trim() || isAiProcessing}
-                className="w-full bg-white text-indigo-600 font-black py-2 rounded-xl text-[8px] uppercase tracking-widest shadow-lg flex items-center justify-center gap-2 active:scale-95 transition-all disabled:opacity-50"
+                className="w-full bg-white text-indigo-600 font-black py-2 rounded-xl shadow-lg flex items-center justify-center gap-2 active:scale-95 transition-all disabled:opacity-50"
               >
                 {isAiProcessing ? <Loader2 size={10} className="animate-spin" /> : <Sparkles size={10} />}
                 Process Signal
@@ -285,6 +308,7 @@ const AddExpense: React.FC<AddExpenseProps> = ({ settings, wealthItems, onAdd, o
               onChange={setMainCategory}
               suggestions={allMainCategories}
               placeholder="e.g. Housing"
+              canCreate={true}
             />
             <Typeahead
               label="Sub-Node"
@@ -292,6 +316,7 @@ const AddExpense: React.FC<AddExpenseProps> = ({ settings, wealthItems, onAdd, o
               onChange={setSubCategory}
               suggestions={currentSubCategories}
               placeholder="e.g. Rent"
+              canCreate={true}
             />
           </div>
 
@@ -347,7 +372,7 @@ const AddExpense: React.FC<AddExpenseProps> = ({ settings, wealthItems, onAdd, o
               disabled={!amount || !mainCategory}
               className="flex-1 py-4 bg-brand-primary text-brand-headerText font-black rounded-2xl shadow-xl active:scale-[0.98] transition-all flex items-center justify-center gap-3 uppercase tracking-[0.15em] text-[10px] disabled:opacity-50"
             >
-              <Check size={18} strokeWidth={4} /> {isEditing ? 'Update Entry' : 'Confirm Expense'}
+              <Check size={18} strokeWidth={4} /> {isEditing ? 'Update Entry' : 'Authorize Expense'}
             </button>
           </div>
         </div>

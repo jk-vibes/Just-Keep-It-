@@ -19,7 +19,9 @@ import {
   Copy,
   AlertTriangle,
   Play,
-  ArrowRight
+  ArrowRight,
+  // Added missing Edit2 import
+  Edit2
 } from 'lucide-react';
 import { auditTransaction, refineBatchTransactions } from '../services/geminiService';
 import { parseSmsLocally } from '../utils/smsParser';
@@ -188,28 +190,21 @@ const SwipeableItem: React.FC<{
               </div>
               <div className="min-w-0 flex flex-col pt-0.5">
                 <div className="flex items-center gap-1.5 overflow-hidden">
-                  {/* Category Field Highlight */}
-                  <div className={`flex items-center gap-1 font-extrabold ${isCompact ? 'text-[11px]' : 'text-[12px]'} truncate leading-tight transition-all rounded-md px-1 -mx-1 ${isCatDiff ? 'ring-1 ring-indigo-400/50 bg-indigo-500/5 animate-pulse' : ''} ${isAvoidFlagged ? 'text-rose-500 dark:text-rose-400' : 'text-brand-text'}`}>
+                  <div className={`flex items-center gap-1 font-extrabold ${isCompact ? 'text-[11px]' : 'text-[12px]'} truncate leading-tight transition-all rounded-md px-1 -mx-1 ${isCatDiff ? 'ring-1 ring-indigo-400/50 bg-indigo-500/5' : ''} ${isAvoidFlagged ? 'text-rose-500 dark:text-rose-400' : 'text-brand-text'}`}>
                     {recordType === 'income' ? <span>{item.type}</span> : (
                        <>
                          <span className="opacity-50">{item.mainCategory || item.category}</span>
                          <ChevronRightIcon size={8} className="opacity-30" />
-                         <span>{item.subCategory || 'General'}</span>
+                         <span>{item.subCategory || (item.category === 'Uncategorized' ? 'Pending' : item.category)}</span>
                        </>
                     )}
                   </div>
                   {item.ruleId && <Zap size={isCompact ? 6 : 8} className="text-emerald-500 fill-emerald-500" />}
-                  {(item.isAIUpgraded || activeAiSuggestion) && (
-                    <button onClick={(e) => { e.stopPropagation(); if (activeAiSuggestion) setShowFloatingPopup(!showFloatingPopup); else handleItemAudit(e); }} className={`transition-colors p-0.5 ${activeAiSuggestion ? 'text-indigo-400 animate-pulse' : 'text-slate-600'}`}>
-                      {isAuditing ? <Loader2 size={isCompact ? 8 : 10} className="animate-spin text-indigo-400" /> : <Sparkles size={isCompact ? 8 : 10} />}
-                    </button>
-                  )}
                   {isDuplicate && <Copy size={8} className="text-rose-400" title="Possible Duplicate" />}
                 </div>
                 {!isCompact && (
                   <div className="flex flex-col gap-0.5 mt-1">
                     <div className="flex items-center gap-1.5">
-                      {/* Merchant Field Highlight */}
                       <span className={`text-[7px] font-black uppercase px-1.5 py-0.5 rounded truncate max-w-[120px] transition-all ${isMerchantDiff ? 'ring-1 ring-indigo-500/30 bg-indigo-500/10' : 'bg-black/40'} ${isDuplicate ? 'ring-1 ring-rose-500/50 bg-rose-500/10' : ''} ${isAvoidFlagged ? 'text-rose-500' : 'text-slate-500'}`}>
                         {item.merchant || 'General'}
                       </span>
@@ -229,10 +224,28 @@ const SwipeableItem: React.FC<{
               </div>
             </div>
           </div>
-          {/* Amount Highlight for Duplicates */}
-          <p className={`font-black ${isCompact ? 'text-[13px]' : 'text-[15px]'} tracking-tight px-1 rounded transition-all ${isDuplicate ? 'ring-1 ring-rose-500/50 bg-rose-500/5 animate-pulse' : ''} ${recordType === 'income' ? 'text-emerald-500' : (recordType === 'transfer' || recordType === 'bill_payment') ? 'text-indigo-500' : (isAvoidFlagged ? 'text-rose-500' : 'text-brand-text')}`}>
-            {recordType === 'income' ? '+' : '-'}{currencySymbol}{Math.round(amount).toLocaleString()}
-          </p>
+          <div className="flex items-center gap-3 shrink-0 ml-2">
+            <div className="text-right flex flex-col items-end">
+              <p className={`font-black ${isCompact ? 'text-[13px]' : 'text-[15px]'} tracking-tight px-1 rounded transition-all ${isDuplicate ? 'ring-1 ring-rose-500/50 bg-rose-500/5 animate-pulse' : ''} ${recordType === 'income' ? 'text-emerald-500' : (recordType === 'transfer' || recordType === 'bill_payment') ? 'text-indigo-500' : (isAvoidFlagged ? 'text-rose-500' : 'text-brand-text')}`}>
+                {recordType === 'income' ? '+' : '-'}{currencySymbol}{Math.round(amount).toLocaleString()}
+              </p>
+              
+              {/* PERMANENT BRAIN ICON FOR AUDITING */}
+              {recordType === 'expense' && (
+                <button 
+                  onClick={handleItemAudit} 
+                  className={`mt-1.5 transition-all p-1 rounded-md hover:bg-indigo-500/10 active:scale-90 ${activeAiSuggestion ? 'text-indigo-400 animate-pulse' : 'text-slate-600 opacity-60 hover:opacity-100'}`}
+                >
+                  {isAuditing ? <Loader2 size={isCompact ? 10 : 12} className="animate-spin text-indigo-400" /> : <BrainCircuit size={isCompact ? 10 : 12} />}
+                </button>
+              )}
+            </div>
+            {!isCompact && (
+              <div className="p-1.5 rounded-lg bg-slate-50 dark:bg-slate-800/50 text-slate-300 dark:text-slate-600 group-hover:text-indigo-500 transition-colors">
+                <Edit2 size={12} />
+              </div>
+            )}
+          </div>
         </div>
 
         {hasDistinctNote && (
@@ -250,11 +263,10 @@ const SwipeableItem: React.FC<{
                       {isDuplicate ? 'Redundancy Detected' : activeAiSuggestion.potentialAvoid ? 'Tactical Avoid' : 'Neural Scan Suggestion'}
                    </p>
                    
-                   {/* DIFF DISPLAY IN POPUP */}
                    <div className="flex items-center gap-1.5 text-white">
                       {isCatDiff ? (
                         <div className="flex items-center gap-1">
-                          <span className="text-[9px] font-black opacity-50 line-through truncate max-w-[80px]">{item.subCategory}</span>
+                          <span className="text-[9px] font-black opacity-50 line-through truncate max-w-[80px]">{item.subCategory || 'General'}</span>
                           <ArrowRight size={8} />
                           <span className="text-[10px] font-black uppercase truncate">{activeAiSuggestion.subCategory}</span>
                         </div>
@@ -273,7 +285,7 @@ const SwipeableItem: React.FC<{
                   onClick={handleApplyAiSuggestion}
                   className="bg-white text-indigo-600 px-3 py-2 rounded-lg text-[8px] font-black uppercase tracking-tight shadow-sm active:scale-95 transition-all shrink-0"
                 >
-                  {isDuplicate ? 'Purge Record' : 'Commit & Rule'}
+                  {isDuplicate ? 'Purge Record' : 'Apply Overwrite'}
                 </button>
               </div>
            </div>
@@ -445,7 +457,6 @@ const Ledger: React.FC<LedgerProps> = ({
 
   const handleBatchRefine = async () => {
     triggerHaptic();
-    // Only refine items that are not confirmed or rule-matched (Respect user edits)
     const candidates = (baseRecords as any[]).filter(r => r.recordType === 'expense' && !r.isConfirmed && !r.isAIUpgraded && !r.ruleId);
     
     if (candidates.length === 0) {
@@ -576,7 +587,7 @@ const Ledger: React.FC<LedgerProps> = ({
                     </>
                   ) : (
                     <>
-                      <FilterX size={32} strokeWidth={1} />
+                      <FilterX size={32} strokeWidth={1.5} />
                       <p className="text-[10px] font-black uppercase tracking-widest mt-4">Registry Null</p>
                     </>
                   )}

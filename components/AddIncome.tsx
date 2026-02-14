@@ -1,7 +1,7 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo, useRef, useEffect } from 'react';
 import { Income, UserSettings, WealthItem, PaymentMethod, IncomeType } from '../types';
 import { getCurrencySymbol } from '../constants';
-import { X, Check, Landmark, ChevronDown, Trash2, Banknote, Wand2, Sparkles, Loader2 } from 'lucide-react';
+import { X, Check, Landmark, ChevronDown, Trash2, Banknote, Wand2, Sparkles, Loader2, Search, Plus } from 'lucide-react';
 import { triggerHaptic } from '../utils/haptics';
 import { parseTransactionText } from '../services/geminiService';
 
@@ -12,29 +12,118 @@ interface AddIncomeProps {
   onUpdate?: (id: string, updates: Partial<Income>) => void;
   onDelete?: (id: string) => void;
   onCancel: () => void;
+  onRegisterIncomeType: (type: string) => void;
   initialData?: Income | null;
 }
 
-const AddIncome: React.FC<AddIncomeProps> = ({ settings, wealthItems, onAdd, onUpdate, onDelete, onCancel, initialData }) => {
+const Typeahead: React.FC<{
+  label: string;
+  value: string;
+  onChange: (val: string) => void;
+  suggestions: string[];
+  placeholder?: string;
+  canCreate?: boolean;
+}> = ({ label, value, onChange, suggestions, placeholder, canCreate }) => {
+  const [isOpen, setIsOpen] = useState(false);
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  const filtered = useMemo(() => {
+    const q = value.toLowerCase();
+    return suggestions.filter(s => s.toLowerCase().includes(q));
+  }, [suggestions, value]);
+
+  const exactMatch = useMemo(() => {
+    return suggestions.some(s => s.toLowerCase() === value.toLowerCase().trim());
+  }, [suggestions, value]);
+
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (containerRef.current && !containerRef.current.contains(event.target as Node)) {
+        setIsOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  const labelClass = "text-[7px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest ml-1 mb-1 block";
+  const inputClass = "w-full bg-brand-accent p-2.5 rounded-xl text-[10px] font-black outline-none border border-brand-border text-brand-text appearance-none transition-all focus:border-brand-primary/30 truncate shadow-inner";
+
+  return (
+    <div className="relative" ref={containerRef}>
+      <span className={labelClass}>{label}</span>
+      <div className="relative group">
+        <input
+          type="text"
+          value={value}
+          onChange={(e) => { onChange(e.target.value); setIsOpen(true); }}
+          onFocus={() => setIsOpen(true)}
+          placeholder={placeholder}
+          className={inputClass}
+        />
+        <div className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-500 pointer-events-none group-focus-within:text-brand-primary transition-colors">
+          <Search size={10} />
+        </div>
+      </div>
+      
+      {isOpen && (filtered.length > 0 || (canCreate && value.trim() && !exactMatch)) && (
+        <div className="absolute z-[300] left-0 right-0 mt-1 bg-brand-surface border border-brand-border rounded-xl shadow-2xl overflow-hidden max-h-40 overflow-y-auto no-scrollbar animate-slide-up">
+          {canCreate && value.trim() && !exactMatch && (
+            <button
+              onClick={() => { onChange(value); setIsOpen(false); triggerHaptic(20); }}
+              className="w-full px-3 py-2 text-left text-[10px] font-black transition-colors border-b border-brand-border bg-indigo-500/10 text-indigo-400 flex items-center gap-2"
+            >
+              <Plus size={10} strokeWidth={4} /> Register "{value}"
+            </button>
+          )}
+          {filtered.map((s) => (
+            <button
+              key={s}
+              onClick={() => { onChange(s); setIsOpen(false); triggerHaptic(5); }}
+              className={`w-full px-3 py-2 text-left text-[10px] font-bold transition-colors border-b border-brand-border last:border-0 ${value === s ? 'bg-brand-primary/10 text-brand-primary' : 'text-brand-text hover:bg-brand-accent'}`}
+            >
+              {s}
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+};
+
+const AddIncome: React.FC<AddIncomeProps> = ({ settings, wealthItems, onAdd, onUpdate, onDelete, onCancel, onRegisterIncomeType, initialData }) => {
   const isEditing = !!(initialData && initialData.id);
   const currencySymbol = getCurrencySymbol(settings.currency);
   const liquidAccounts = wealthItems.filter(i => i.type === 'Investment' && ['Savings', 'Cash'].includes(i.category));
 
   const [amount, setAmount] = useState(initialData?.amount?.toString() || '');
   const [date, setDate] = useState(initialData?.date || new Date().toISOString().split('T')[0]);
-  const [type, setType] = useState<IncomeType>(initialData?.type || 'Salary');
+  const [type, setType] = useState<string>(initialData?.type || 'Salary');
   const [note, setNote] = useState(initialData?.note || '');
   const [targetAccountId, setTargetAccountId] = useState(initialData?.targetAccountId || '');
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>(initialData?.paymentMethod || 'Net Banking');
   const [isAiProcessing, setIsAiProcessing] = useState(false);
 
+  const defaultIncomeTypes = ['Salary', 'Freelance', 'Investment', 'Gift', 'Other'];
+  
+  const allIncomeTypes = useMemo(() => {
+    const customInflows = settings.customCategories?.Uncategorized?.Inflow || [];
+    return Array.from(new Set([...defaultIncomeTypes, ...customInflows])).sort();
+  }, [settings.customCategories]);
+
   const handleSubmit = () => {
     if (!amount) return;
     triggerHaptic(20);
+
+    const trimmedType = type.trim();
+    if (!allIncomeTypes.includes(trimmedType)) {
+      onRegisterIncomeType(trimmedType);
+    }
+
     const payload = {
       amount: Math.round(parseFloat(amount)),
       date,
-      type,
+      type: trimmedType as IncomeType,
       note,
       paymentMethod,
       targetAccountId
@@ -54,7 +143,7 @@ const AddIncome: React.FC<AddIncomeProps> = ({ settings, wealthItems, onAdd, onU
       const result = await parseTransactionText(prompt, settings.currency);
       if (result && result.entryType === 'Income') {
         setAmount(result.amount.toString());
-        setType(result.incomeType as IncomeType || 'Salary');
+        setType(result.incomeType || 'Salary');
         setDate(result.date);
         setNote(prompt);
         triggerHaptic(40);
@@ -89,7 +178,6 @@ const AddIncome: React.FC<AddIncomeProps> = ({ settings, wealthItems, onAdd, onU
 
         <div className="flex-1 overflow-y-auto no-scrollbar p-5 space-y-5 pb-8">
           
-          {/* LEFT-ALIGNED AMOUNT FIELD */}
           <div className="space-y-1.5">
             <span className={labelClass}>Credit Amount</span>
             <div className="flex items-center gap-3 bg-brand-accent p-3 rounded-[22px] border border-brand-border shadow-inner group">
@@ -119,19 +207,14 @@ const AddIncome: React.FC<AddIncomeProps> = ({ settings, wealthItems, onAdd, onU
               <span className={labelClass}>Registry Date</span>
               <input type="date" value={date} onChange={(e) => setDate(e.target.value)} className={menuButtonClass} />
             </div>
-            <div className="space-y-0.5">
-              <span className={labelClass}>Source Classification</span>
-              <div className="relative">
-                <select value={type} onChange={(e) => setType(e.target.value as IncomeType)} className={menuButtonClass}>
-                    <option value="Salary">Primary Salary</option>
-                    <option value="Freelance">Gig Inflow</option>
-                    <option value="Investment">Asset Yield</option>
-                    <option value="Gift">Personal Gift</option>
-                    <option value="Other">Miscellaneous</option>
-                </select>
-                <ChevronDown size={10} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
-              </div>
-            </div>
+            <Typeahead
+              label="Inflow Logic"
+              value={type}
+              onChange={setType}
+              suggestions={allIncomeTypes}
+              placeholder="e.g. Salary"
+              canCreate={true}
+            />
           </div>
 
           <div className="space-y-0.5">
