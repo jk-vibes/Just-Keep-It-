@@ -20,7 +20,6 @@ import {
   AlertTriangle,
   Play,
   ArrowRight,
-  // Added missing Edit2 import
   Edit2
 } from 'lucide-react';
 import { auditTransaction, refineBatchTransactions } from '../services/geminiService';
@@ -157,7 +156,6 @@ const SwipeableItem: React.FC<{
   const isDuplicate = !!activeAiSuggestion?.isDuplicateOf;
   const hasDistinctNote = item.note && item.note !== item.merchant && item.note !== item.subCategory;
 
-  // FIELD HIGHLIGHT LOGIC
   const isCatDiff = activeAiSuggestion && (item.mainCategory !== activeAiSuggestion.mainCategory || item.subCategory !== activeAiSuggestion.subCategory);
   const isMerchantDiff = activeAiSuggestion && (item.merchant !== activeAiSuggestion.merchant);
 
@@ -190,7 +188,7 @@ const SwipeableItem: React.FC<{
               </div>
               <div className="min-w-0 flex flex-col pt-0.5">
                 <div className="flex items-center gap-1.5 overflow-hidden">
-                  <div className={`flex items-center gap-1 font-extrabold ${isCompact ? 'text-[11px]' : 'text-[12px]'} truncate leading-tight transition-all rounded-md px-1 -mx-1 ${isCatDiff ? 'ring-1 ring-indigo-400/50 bg-indigo-500/5' : ''} ${isAvoidFlagged ? 'text-rose-500 dark:text-rose-400' : 'text-brand-text'}`}>
+                  <div className={`flex items-center gap-1 font-extrabold ${isCompact ? 'text-[11px]' : 'text-[12px]'} truncate leading-tight transition-all rounded-md px-1 -mx-1 ${isCatDiff ? 'ring-1 ring-indigo-400/50 bg-indigo-50/5' : ''} ${isAvoidFlagged ? 'text-rose-500 dark:text-rose-400' : 'text-brand-text'}`}>
                     {recordType === 'income' ? <span>{item.type}</span> : (
                        <>
                          <span className="opacity-50">{item.mainCategory || item.category}</span>
@@ -230,7 +228,6 @@ const SwipeableItem: React.FC<{
                 {recordType === 'income' ? '+' : '-'}{currencySymbol}{Math.round(amount).toLocaleString()}
               </p>
               
-              {/* PERMANENT BRAIN ICON FOR AUDITING */}
               {recordType === 'expense' && (
                 <button 
                   onClick={handleItemAudit} 
@@ -457,16 +454,26 @@ const Ledger: React.FC<LedgerProps> = ({
 
   const handleBatchRefine = async () => {
     triggerHaptic();
-    const candidates = (baseRecords as any[]).filter(r => r.recordType === 'expense' && !r.isConfirmed && !r.isAIUpgraded && !r.ruleId);
+    // Allow user to scan any visible expense in the current month view
+    const candidates = (baseRecords as any[]).filter(r => r.recordType === 'expense');
     
     if (candidates.length === 0) {
-      showToast("Registry is already sorted and optimized.", "info");
+      showToast("No expense records in current month to scan.", "info");
       return;
     }
 
     setIsRefining(true);
+    showToast("Initiating Neural Audit for current month...", "info");
+
     try {
-      const payload = candidates.map(c => ({ id: c.id, amount: Math.round(c.amount), merchant: c.merchant || 'General', note: c.note || '', date: c.date }));
+      const payload = candidates.map(c => ({ 
+        id: c.id, 
+        amount: Math.round(c.amount), 
+        merchant: c.merchant || 'General', 
+        note: c.note || '', 
+        date: c.date 
+      }));
+      
       const suggestions = await refineBatchTransactions(payload);
       
       if (suggestions && suggestions.length > 0) {
@@ -482,10 +489,10 @@ const Ledger: React.FC<LedgerProps> = ({
         
         const avoidCount = suggestions.filter(s => s.isAvoidSuggestion).length;
         const dupeCount = suggestions.filter(s => s.isDuplicateOf).length;
-        showToast(`Neural Scan: ${avoidCount} Avoids, ${dupeCount} Duplicates found.`, 'info');
+        showToast(`Scan complete: ${avoidCount} Avoids, ${dupeCount} Duplicates found.`, 'success');
         setIsShowingAISuggestionsOnly(true);
       } else {
-        showToast("Neural scan completed. No anomalies found.", "success");
+        showToast("Neural scan completed. No optimizations suggested.", "success");
       }
     } catch (e) { 
       showToast("Tactical scan interrupted. Please try again.", "error");
