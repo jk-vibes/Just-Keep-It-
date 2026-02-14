@@ -88,7 +88,7 @@ const Toast: React.FC<{
     success: { icon: <CheckCircle2 size={12} />, gradient: theme === 'Moon' ? 'from-black to-slate-700' : 'from-emerald-600 to-emerald-800', label: 'SYSTEM UPDATE', textColor: 'text-white' },
     error: { icon: <AlertCircle size={12} />, gradient: theme === 'Moon' ? 'from-black to-slate-700' : 'from-rose-600 to-rose-800', label: 'PROTOCOL ALERT', textColor: 'text-white' },
     info: { icon: <Info size={12} />, gradient: (theme === 'Moon' || theme === 'Batman') ? 'from-brand-primary to-brand-secondary' : 'from-indigo-600 to-indigo-800', label: 'REGISTRY SIGNAL', textColor: (theme === 'Moon' || theme === 'Batman') ? 'text-brand-headerText' : 'text-white' },
-    advice: { icon: <UserCircle2 size={12} />, gradient: theme === 'Moon' ? 'from-black to-slate-700' : 'from-brand-primary to-brand-secondary', label: "FATHER'S PROTOCOL", textColor: (theme === 'Moon' || theme === 'Batman') ? 'text-brand-headerText' : 'text-white' }
+    advice: { icon: <UserCircle2 size={12} />, gradient: theme === 'Moon' ? 'from-black to-slate-700' : 'from-brand-primary to-brand-secondary', label: "DADDY'S ADVICE", textColor: (theme === 'Moon' || theme === 'Batman') ? 'text-brand-headerText' : 'text-white' }
   };
 
   const { icon, gradient, label, textColor } = config[type];

@@ -11,7 +11,8 @@ import {
   Target, Info, Zap, AlertCircle,
   LayoutGrid, List, BarChart as BarChartIcon,
   ArrowUpRight, ArrowDownRight, Layers,
-  ReceiptText, Sparkles, Plus, Tag
+  ReceiptText, Sparkles, Plus, Tag,
+  Clock
 } from 'lucide-react';
 import { 
   AreaChart, Area, 
@@ -77,9 +78,17 @@ const UltraCompactRow: React.FC<{
   onClick: () => void;
 }> = ({ item, unpaidBills, currencySymbol, onClick }) => {
   const isCC = item.category === 'Credit Card';
-  const displayValue = isCC 
-    ? Math.max(0, (item.limit || 0) - item.value - unpaidBills)
-    : item.value;
+  const displayValue = item.value + unpaidBills;
+  const availableLimit = isCC ? Math.max(0, (item.limit || 0) - displayValue) : 0;
+  
+  const refreshDate = useMemo(() => {
+    try {
+      const d = new Date(item.date);
+      return d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' }).toUpperCase();
+    } catch {
+      return 'N/A';
+    }
+  }, [item.date]);
 
   return (
     <div 
@@ -98,19 +107,24 @@ const UltraCompactRow: React.FC<{
              <span className="text-[7px] font-bold text-slate-500 uppercase tracking-widest leading-none">
                {item.category}
              </span>
-             {isCC && (
-               <span className="text-[6px] font-black text-rose-400 uppercase tracking-widest bg-rose-500/10 px-1 rounded">
-                 Due: {currencySymbol}{Math.round(item.value + unpaidBills).toLocaleString()}
+             {isCC && item.limit && (
+               <span className="text-[6px] font-black text-indigo-400 uppercase tracking-widest bg-indigo-500/10 px-1 rounded">
+                 Avail: {currencySymbol}{Math.round(availableLimit).toLocaleString()}
                </span>
              )}
           </div>
         </div>
       </div>
       <div className="flex flex-col items-end shrink-0">
-        <span className={`text-[11px] font-black tracking-tight leading-none ${isCC ? 'text-indigo-400' : (item.value < 0 ? 'text-rose-500' : 'text-brand-text')}`}>
-          {item.value < 0 && !isCC ? '-' : ''}{currencySymbol}{Math.abs(Math.round(displayValue)).toLocaleString()}
+        <span className={`text-[11px] font-black tracking-tight leading-none ${item.type === 'Liability' ? 'text-rose-500' : 'text-brand-text'}`}>
+          {item.type === 'Liability' && displayValue > 0 ? '-' : ''}{currencySymbol}{Math.abs(Math.round(displayValue)).toLocaleString()}
         </span>
-        {isCC && <span className="text-[6px] font-black text-slate-500 uppercase tracking-widest mt-1">Available</span>}
+        <div className="flex items-center gap-1 mt-1 text-slate-500">
+          <Clock size={6} className="opacity-50" />
+          <span className="text-[6px] font-black uppercase tracking-widest leading-none">
+            {item.type === 'Liability' ? 'Due' : 'Bal'} • {refreshDate}
+          </span>
+        </div>
       </div>
     </div>
   );
@@ -144,6 +158,7 @@ const Accounts: React.FC<AccountsProps> = ({
     const liquid = wealthItems.filter(i => i.type === 'Investment' && ['Savings', 'Cash'].includes(i.category)).reduce((sum, i) => sum + i.value, 0);
     const totalUnpaidBills = bills.filter(b => !b.isPaid).reduce((sum, b) => sum + b.amount, 0);
     
+    // Liabilities only account for outstanding debt, not limits.
     const totalLiabilities = Math.round(accountLiabilities + totalUnpaidBills);
     const netWorth = Math.round(assets - totalLiabilities);
     
@@ -274,7 +289,7 @@ const Accounts: React.FC<AccountsProps> = ({
                       <Target size={12} className="text-indigo-400" />
                       <span className="text-[8px] font-black text-slate-500 uppercase tracking-widest">Liquidity index</span>
                    </div>
-                   <h3 className="text-xl font-black text-indigo-400 tracking-tighter">{Math.round(stats.liquidityRatio)}%</h3>
+                   <h3 className="textxl font-black text-indigo-400 tracking-tighter">{Math.round(stats.liquidityRatio)}%</h3>
                    <div className="w-full h-1 bg-brand-accent/40 rounded-full mt-2 overflow-hidden border border-white/5">
                       <div className="h-full bg-indigo-500 rounded-full transition-all duration-1000" style={{ width: `${stats.liquidityRatio}%` }} />
                    </div>
@@ -284,7 +299,7 @@ const Accounts: React.FC<AccountsProps> = ({
                       <AlertCircle size={12} className="text-rose-500" />
                       <span className="text-[8px] font-black text-slate-500 uppercase tracking-widest">Debt burden</span>
                    </div>
-                   <h3 className="text-xl font-black text-rose-500 tracking-tighter">{currencySymbol}{Math.round(stats.totalLiabilities).toLocaleString()}</h3>
+                   <h3 className="textxl font-black text-rose-500 tracking-tighter">{currencySymbol}{Math.round(stats.totalLiabilities).toLocaleString()}</h3>
                    <div className="w-full h-1 bg-brand-accent/40 rounded-full mt-2 overflow-hidden border border-white/5">
                       <div className="h-full bg-rose-500 rounded-full transition-all duration-1000" style={{ width: `${Math.min(100, (stats.totalLiabilities / (stats.totalAssets || 1)) * 100)}%` }} />
                    </div>
@@ -298,7 +313,7 @@ const Accounts: React.FC<AccountsProps> = ({
                   </div>
                   <div>
                     <h3 className="text-[10px] font-black text-slate-500 uppercase tracking-[0.2em] leading-none">Asset Composition</h3>
-                    <p className="text-xl font-black text-brand-text mt-1.5 tracking-tighter">{currencySymbol}{stats.totalAssets.toLocaleString()}</p>
+                    <p className="textxl font-black text-brand-text mt-1.5 tracking-tighter">{currencySymbol}{stats.totalAssets.toLocaleString()}</p>
                   </div>
                 </div>
                 <div className="h-56 w-full -ml-8">
