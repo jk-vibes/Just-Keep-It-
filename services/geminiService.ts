@@ -1,4 +1,3 @@
-
 import { GoogleGenAI, Type, GenerateContentResponse } from "@google/genai";
 import { Expense, UserSettings, Category, WealthItem, BudgetItem, Bill } from "../types";
 
@@ -76,14 +75,14 @@ export async function refineBatchTransactions(transactions: Array<{ id: string, 
   const prompt = `
     Audit and refine these ${transactions.length} transactions.
     Rules:
-    1. Identify Merchant Name, Main Category, and Sub-Category.
-    2. Flag "Avoids": Deferrable, impulsive, or wasteful expenses (e.g. late fees, redundant subscriptions, impulsive low-value eating out when other essentials are pending).
-    3. Identify Duplicates: If two items have same amount, merchant, and are on the same or adjacent dates, provide the ID of the "Primary" item in 'isDuplicateOf'.
-    4. Generate an "Intelligent Note": Professional 5-8 word description (e.g. "Consolidated monthly streaming charges").
-
+    1. Identification: Provide a clean Merchant Name, Main Category (e.g. Housing, Lifestyle), and Sub-Category (e.g. Rent, Dining).
+    2. Flag "Avoids": Identify wasteful, impulsive, or redundant expenses (e.g. late fees, bank penalties, unwanted subscriptions, unnecessary premium convenience fees). Set 'isAvoidSuggestion' to true and category to 'Avoids'.
+    3. Duplicate Check: Compare transactions. If two or more transactions share the same amount and merchant within +/- 1 day, mark the newer one as a duplicate by providing the ID of the 'Primary' transaction in the 'isDuplicateOf' field.
+    4. Note Generation: Generate a professional, short note (5-8 words) explaining the transaction context (e.g. "Monthly software licensing fee", "Weekly household grocery replenishment").
+    
     Data: ${JSON.stringify(transactions)}
     
-    Return JSON array of objects. Do not categorize as 'Uncategorized' if a specific match exists.
+    Return JSON array. Ensure user-edited categories are respected by NOT refining confirmed items (the data provided here is strictly for refinement).
   `;
 
   try {
@@ -126,10 +125,12 @@ export async function auditTransaction(expense: Expense, currency: string) {
     Current Category: ${expense.category}
     
     Identify if this belongs in:
-    - Needs: Survival/Obligations
-    - Wants: Chosen enjoyment
-    - Savings: Future capital
+    - Needs: Survival/Obligations (Rent, Utilities, Groceries, Insurance, EMIs)
+    - Wants: Chosen enjoyment (Dining, Entertainment, Travel, Shopping)
+    - Savings: Future capital (SIP, Stocks, Gold, FD)
     - Avoids: Unwanted, deferrable, or wasteful expenses (Late fees, penalties, impulsive redundant buys).
+    
+    STRICT RULE: Do NOT use "General" as a category name. If context is missing, use "Other" or "Miscellaneous".
     
     Return JSON: {
       isCorrect: boolean,
@@ -212,6 +213,7 @@ export async function parseTransactionText(text: string, currency: string): Prom
     Currency: ${currency}.
     Identify Category as Needs/Wants/Savings/Avoids.
     "Avoids" are unwanted expenses which can wait.
+    STRICT RULE: Do NOT use "General" as a subcategory. If context is missing, use "Other".
     Return JSON.
   `;
 
@@ -245,7 +247,7 @@ export async function parseTransactionText(text: string, currency: string): Prom
       amount: Math.round(Math.abs(result.amount || 0)),
       merchant: result.merchant || result.accountName || 'Merchant',
       category: validCategories.includes(result.category) ? result.category : 'Uncategorized',
-      subCategory: result.subCategory || 'General',
+      subCategory: result.subCategory || 'Other',
       date: result.date || new Date().toISOString().split('T')[0],
       incomeType: result.incomeType,
       accountName: result.accountName
@@ -278,6 +280,7 @@ export async function parseBulkTransactions(text: string, currency: string): Pro
     Analyze this financial log text and extract transactions.
     Currency: ${currency}.
     Categorize as Needs, Wants, Savings, or Avoids (Unwanted/Deferrable).
+    STRICT RULE: Avoid using the word "General" for subcategories. Use specific descriptors or "Other".
     Return JSON array.
   `;
 
@@ -315,19 +318,26 @@ export async function parseBulkTransactions(text: string, currency: string): Pro
 }
 
 export async function batchProcessNewTransactions(
-  items: Array<{ merchant: string, amount: number, date: string }>
+  items: Array<{ merchant: string, amount: number, date: string, note?: string }>
 ): Promise<Array<{ merchant: string, category: Category, mainCategory: string, subCategory: string, intelligentNote: string }>> {
   const prompt = `
     Analyze these ${items.length} financial transactions. 
-    For each, provide:
-    1. A clean, professional merchant name.
-    2. Category (Needs/Wants/Savings/Avoids).
-    3. Main Category & Sub Category from standard finance taxonomy.
-    4. An "Intelligent Note": A clever, concise 5-8 word description based on the merchant pattern (e.g. "Weekly organic grocery restock", "Digital streaming services subscription").
+    Use the Merchant name and the Note (which is the raw bank message) to determine the correct category.
+    
+    Rules:
+    1. A clean, professional merchant name from the raw message.
+    2. Category MUST be one of: Needs, Wants, Savings, Avoids.
+       - Needs: Housing, Groceries, Fuel, Utilities, Insurance, EMIs.
+       - Wants: Dining, Entertainment, Travel, Hobbies, Shopping.
+       - Savings: Investments, SIPs, Gold, Deposits.
+       - Avoids: Late fees, Penalities, ATM fees, Impulsive redundant buys.
+    3. Provide a clear Main Category (e.g., 'Lifestyle') and Sub Category (e.g., 'Dining').
+    4. STRICT RULE: DO NOT use "General" for any category or sub-category. If you are unsure, categorize as accurately as possible based on the merchant industry (e.g. Zomato -> Lifestyle -> Dining).
+    5. An "Intelligent Note": A clever, concise 5-8 word description based on the merchant pattern (e.g. "Weekly organic grocery restock", "Digital streaming services subscription").
 
     Data: ${JSON.stringify(items)}
 
-    Return a JSON array matching input order.
+    Return a JSON array matching input order. Ensure categorization is specific and avoids generic tagging.
   `;
 
   try {
@@ -359,7 +369,6 @@ export async function batchProcessNewTransactions(
 }
 
 /**
- * FIXED: Added missing getDecisionAdvice function to fix error in AskMe component.
  * Evaluates financial queries using Gemini against current wealth data.
  */
 export async function getDecisionAdvice(

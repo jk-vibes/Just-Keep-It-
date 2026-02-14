@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { View, Expense, BudgetRule, UserSettings, Category, UserProfile, Frequency, RecurringItem, Income, AppTheme, Notification, WealthItem, BudgetItem, Bill } from './types';
 import Dashboard from './components/Dashboard';
@@ -26,15 +25,15 @@ import BudgetGoalModal from './components/BudgetGoalModal';
 import CategoryManager from './components/CategoryManager';
 import ImportReviewModal from './components/ImportReviewModal';
 import { SpiderIcon, NarutoIcon, CaptainAmericaIcon, BatmanIcon, MoonIcon } from './components/ThemeSymbols';
-import { Loader2, LayoutDashboard, List, Settings as SettingsIcon, Bell, Wallet, Target, X, Sparkles, CheckCircle2, AlertCircle, Zap, UserCircle2, Info } from 'lucide-react';
-import { DEFAULT_SPLIT, DEFAULT_CATEGORIES } from './constants';
+import { Loader2, LayoutDashboard, List, Settings as SettingsIcon, Bell, Wallet, Target, X, Sparkles, CheckCircle2, AlertCircle, Zap, UserCircle2, Info, BrainCircuit } from 'lucide-react';
+import { DEFAULT_SPLIT, DEFAULT_CATEGORIES, getCurrencySymbol } from './constants';
 import { triggerHaptic } from './utils/haptics';
 import { parseSmsLocally } from './utils/smsParser';
 import { generate12MonthData } from './utils/mockData';
 import { getFatherlyAdvice, batchProcessNewTransactions } from './services/geminiService';
 
 const STORAGE_KEY = 'jk_budget_data_whole_num_v12';
-const APP_VERSION = 'v1.2.6';
+const APP_VERSION = 'v1.2.7';
 
 const INITIAL_SETTINGS: UserSettings = {
   monthlyIncome: 350000,
@@ -117,6 +116,7 @@ const Toast: React.FC<{
 
 const App: React.FC = () => {
   const [isLoading, setIsLoading] = useState(true);
+  const [isIngesting, setIsIngesting] = useState(false);
   const [isResetting, setIsResetting] = useState(false);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [settings, setSettings] = useState<UserSettings>(INITIAL_SETTINGS);
@@ -155,6 +155,9 @@ const App: React.FC = () => {
   const [fatherlyAdvice, setFatherlyAdvice] = useState<string | null>(null);
   const [lastAdviceFetch, setLastAdviceFetch] = useState<number>(0);
 
+  // Track notified budget goal IDs for the current month to avoid duplicate alerts
+  const [notifiedBudgetGoalIds, setNotifiedBudgetGoalIds] = useState<Record<string, string[]>>({});
+
   const addNotification = useCallback((notif: Omit<Notification, 'timestamp' | 'read'> & { id?: string }) => {
     const id = notif.id || Math.random().toString(36).substring(2, 11);
     setNotifications(prev => [{ ...notif, id, timestamp: new Date().toISOString(), read: false }, ...prev.slice(0, 100)]);
@@ -168,12 +171,50 @@ const App: React.FC = () => {
     }
   }, [addNotification]);
 
+  // Threshold monitor logic
+  useEffect(() => {
+    if (isLoading || isResetting || !budgetItems.length) return;
+
+    const m = new Date().getMonth();
+    const y = new Date().getFullYear();
+    const monthKey = `${y}-${m}`;
+
+    budgetItems.forEach(goal => {
+      const spent = expenses
+        .filter(e => {
+          const d = new Date(e.date);
+          return d.getMonth() === m && d.getFullYear() === y && 
+                 e.category === goal.bucket && e.mainCategory === goal.category;
+        })
+        .reduce((sum, e) => sum + e.amount, 0);
+
+      const threshold = 0.8; // 80%
+      const percentage = goal.amount > 0 ? spent / goal.amount : 0;
+      
+      const notifiedThisMonth = notifiedBudgetGoalIds[monthKey] || [];
+
+      if (percentage >= threshold && !notifiedThisMonth.includes(goal.id)) {
+        const symbol = getCurrencySymbol(settings.currency);
+        addNotification({
+          type: 'AI',
+          title: 'Neural Protocol Alert',
+          message: `Spending for "${goal.name}" has exceeded 80% of your ${symbol}${Math.round(goal.amount)} budget. Current: ${symbol}${Math.round(spent)}.`,
+          severity: 'warning'
+        });
+
+        setNotifiedBudgetGoalIds(prev => ({
+          ...prev,
+          [monthKey]: [...(prev[monthKey] || []), goal.id]
+        }));
+      }
+    });
+  }, [expenses, budgetItems, isLoading, isResetting, addNotification, settings.currency, notifiedBudgetGoalIds]);
+
   const handleUpdateExpense = useCallback((id: string, updates: Partial<Expense>) => {
     setExpenses(prev => {
       const target = prev.find(e => e.id === id);
       if (!target) return prev;
       
-      // Automatic rule creation if AI upgraded or manually confirmed with merchant
       if (updates.isAIUpgraded && updates.merchant && updates.category) {
         setRules(currentRules => {
           const exists = currentRules.some(r => r.keyword.toLowerCase() === updates.merchant?.toLowerCase());
@@ -332,14 +373,15 @@ const App: React.FC = () => {
         if (parsed.bills) setBills(parsed.bills); if (parsed.budgetItems) setBudgetItems(parsed.budgetItems); if (parsed.rules) setRules(parsed.rules);
         if (parsed.recurringItems) setRecurringItems(parsed.recurringItems); if (parsed.notifications) setNotifications(parsed.notifications);
         if (parsed.user) { setUser(parsed.user); setIsAuthenticated(true); }
+        if (parsed.notifiedBudgetGoalIds) setNotifiedBudgetGoalIds(parsed.notifiedBudgetGoalIds);
       } catch (e) { }
     }
     setIsLoading(false);
   }, []);
 
   useEffect(() => {
-    if (!isLoading && !isResetting) { localStorage.setItem(STORAGE_KEY, JSON.stringify({ settings, expenses, incomes, wealthItems, bills, user, budgetItems, rules, recurringItems, notifications })); }
-  }, [settings, expenses, incomes, wealthItems, bills, user, budgetItems, rules, recurringItems, notifications, isLoading, isResetting]);
+    if (!isLoading && !isResetting) { localStorage.setItem(STORAGE_KEY, JSON.stringify({ settings, expenses, incomes, wealthItems, bills, user, budgetItems, rules, recurringItems, notifications, notifiedBudgetGoalIds })); }
+  }, [settings, expenses, incomes, wealthItems, bills, user, budgetItems, rules, recurringItems, notifications, notifiedBudgetGoalIds, isLoading, isResetting]);
 
   useEffect(() => {
     const root = window.document.documentElement; root.setAttribute('data-theme', settings.appTheme || 'Batman'); root.setAttribute('data-density', settings.density || 'Compact');
@@ -349,51 +391,144 @@ const App: React.FC = () => {
   const handleCSVImport = useCallback((file: File) => {
     const reader = new FileReader();
     reader.onload = async (e) => {
+      setIsIngesting(true);
       try {
         const text = e.target?.result as string;
         const results = parseSmsLocally(text);
         if (!results || results.length === 0) {
            showToast("No financial records identified in the source.", 'error');
+           setIsIngesting(false);
            return;
         }
         triggerHaptic(50);
-        showToast("Filtering & analyzing incoming records...", 'info');
+        showToast("Importing expense records..", 'info');
+        
         const latestTxDate = expenses.length > 0 ? Math.max(...expenses.map(ex => new Date(ex.date).getTime())) : 0;
         const freshExpenses = results.filter(r => (r.entryType === 'Expense' || r.entryType === 'Transfer') && r.amount);
+        
         let aiMetadata: any[] = [];
-        if (freshExpenses.length > 0) {
-           aiMetadata = await batchProcessNewTransactions(freshExpenses.map(f => ({ merchant: f.merchant || 'General', amount: f.amount || 0, date: f.date })));
+        try {
+          if (freshExpenses.length > 0) {
+             const chunk = freshExpenses.slice(0, 35).map(f => ({ 
+               merchant: f.merchant || 'General', 
+               amount: f.amount || 0, 
+               date: f.date,
+               note: f.note || f.rawContent 
+             }));
+             aiMetadata = await batchProcessNewTransactions(chunk);
+          }
+        } catch (aiErr) {
+          console.warn("Neural enrichment throttled, proceeding with raw signals.");
         }
-        const enrichedResults = results.map((res) => {
+
+        const newExpensesToCommit: Expense[] = [];
+        const newIncomesToCommit: Income[] = [];
+        const newRulesToCommit: BudgetRule[] = [];
+        const newlyAddedRuleKeywords = new Set<string>();
+
+        results.forEach((res) => {
           const resDate = new Date(res.date).getTime();
           const isStale = resDate <= latestTxDate;
           const isDuplicate = expenses.some(ex => ex.date === res.date && Math.abs(ex.amount - (res.amount || 0)) < 1 && (ex.merchant?.toLowerCase() === res.merchant?.toLowerCase()));
-          let enriched = { ...res, isStale, isDuplicate, isAIEnriched: false };
+          
+          if (isDuplicate || isStale) return; 
+
+          const id = Math.random().toString(36).substring(2, 11);
+          
+          let accountId = '';
+          const liquidAccounts = wealthItems.filter(i => ['Savings', 'Cash', 'Credit Card'].includes(i.category));
+          const hint = (res.accountName || res.merchant || '').toLowerCase();
+          const accountMatch = wealthItems.find(w => 
+            w.name.toLowerCase().includes(hint) || 
+            hint.includes(w.name.toLowerCase()) ||
+            (w.alias && (w.alias.toLowerCase().includes(hint) || hint.includes(w.alias.toLowerCase())))
+          );
+          if (accountMatch) accountId = accountMatch.id;
+          else if (liquidAccounts.length === 1) accountId = liquidAccounts[0].id;
+
           if (res.entryType === 'Expense' || res.entryType === 'Transfer') {
              const aiMatch = aiMetadata.find(meta => meta.merchant.toLowerCase().includes((res.merchant || '').toLowerCase()));
-             if (aiMatch) {
-                enriched = { ...enriched, merchant: aiMatch.merchant, category: aiMatch.category, mainCategory: aiMatch.mainCategory, subCategory: aiMatch.subCategory, note: aiMatch.intelligentNote, isAIEnriched: true };
+             const isEnriched = !!aiMatch;
+             
+             newExpensesToCommit.push({
+               id,
+               amount: res.amount || 0,
+               date: res.date,
+               category: (isEnriched ? aiMatch.category : (res.category || 'Uncategorized')),
+               mainCategory: (isEnriched ? aiMatch.mainCategory : (res.mainCategory || 'General')),
+               subCategory: (isEnriched ? aiMatch.subCategory : (res.subCategory || 'Other')),
+               merchant: (isEnriched ? aiMatch.merchant : (res.merchant || 'General')),
+               note: (isEnriched ? aiMatch.intelligentNote : (res.note || 'Imported Entry')),
+               isConfirmed: true,
+               isImported: true,
+               sourceAccountId: accountId,
+               isAIUpgraded: isEnriched
+             });
+
+             if (isEnriched && aiMatch.merchant) {
+                const keywordLower = aiMatch.merchant.toLowerCase();
+                const ruleExists = rules.some(r => r.keyword.toLowerCase() === keywordLower);
+                if (!ruleExists && !newlyAddedRuleKeywords.has(keywordLower)) {
+                  newRulesToCommit.push({
+                    id: Math.random().toString(36).substring(2, 11),
+                    keyword: aiMatch.merchant,
+                    category: aiMatch.category,
+                    mainCategory: aiMatch.mainCategory,
+                    subCategory: aiMatch.subCategory,
+                    isImported: true
+                  });
+                  newlyAddedRuleKeywords.add(keywordLower);
+                }
              }
+          } else if (res.entryType === 'Income') {
+             newIncomesToCommit.push({
+               id,
+               amount: res.amount || 0,
+               date: res.date,
+               type: res.incomeType as any || 'Other',
+               note: res.note || 'Imported Income',
+               isImported: true,
+               targetAccountId: accountId
+             });
           }
-          return enriched;
         });
-        setStagedImportItems(enrichedResults);
-      } catch (err) { showToast("Neural ingestion pipe failure.", 'error'); }
+
+        if (newExpensesToCommit.length > 0) setExpenses(prev => [...newExpensesToCommit, ...prev]);
+        if (newIncomesToCommit.length > 0) setIncomes(prev => [...newIncomesToCommit, ...prev]);
+        if (newRulesToCommit.length > 0) setRules(prev => [...prev, ...newRulesToCommit]);
+
+        const totalCount = newExpensesToCommit.length + newIncomesToCommit.length;
+        if (totalCount > 0) {
+          showToast(`Successfully synchronized ${totalCount} records.`, 'success');
+        } else {
+          showToast("No new records found to synchronize.", 'info');
+        }
+      } catch (err) { 
+        showToast("Signal ingestion failure. Ensure CSV format is valid.", 'error'); 
+      } finally {
+        setIsIngesting(false);
+      }
     };
     reader.readAsText(file);
-  }, [expenses, showToast]);
+  }, [expenses, rules, wealthItems, showToast]);
 
   const finalizeImport = (finalItems: any[]) => {
     const newExpenses: Expense[] = [];
     const newIncomes: Income[] = [];
     const newRules: BudgetRule[] = [];
+    const internalRuleTrack = new Set<string>();
+
     finalItems.forEach(item => {
       const id = Math.random().toString(36).substring(2, 11);
       if (item.entryType === 'Expense' || item.entryType === 'Transfer') {
-        newExpenses.push({ id, amount: item.amount, date: item.date, category: item.category || 'Uncategorized', mainCategory: item.mainCategory || 'General', subCategory: item.subCategory || 'General', merchant: item.merchant, note: item.note || item.intelligentNote, isConfirmed: true, isImported: true, sourceAccountId: item.targetAccountId, isAIUpgraded: item.isAIEnriched });
+        newExpenses.push({ id, amount: item.amount, date: item.date, category: item.category || 'Uncategorized', mainCategory: item.mainCategory || 'General', subCategory: item.subCategory || 'Other', merchant: item.merchant, note: item.note || item.intelligentNote, isConfirmed: true, isImported: true, sourceAccountId: item.targetAccountId, isAIUpgraded: item.isAIEnriched });
         if (item.isAIEnriched && item.merchant) {
-           const exists = rules.some(r => r.keyword.toLowerCase() === item.merchant.toLowerCase());
-           if (!exists) { newRules.push({ id: Math.random().toString(36).substring(2, 11), keyword: item.merchant, category: item.category, mainCategory: item.mainCategory, subCategory: item.subCategory, isImported: true }); }
+           const kw = item.merchant.toLowerCase();
+           const exists = rules.some(r => r.keyword.toLowerCase() === kw);
+           if (!exists && !internalRuleTrack.has(kw)) { 
+              newRules.push({ id: Math.random().toString(36).substring(2, 11), keyword: item.merchant, category: item.category, mainCategory: item.mainCategory, subCategory: item.subCategory, isImported: true }); 
+              internalRuleTrack.add(kw);
+           }
         }
       } else if (item.entryType === 'Income') {
         newIncomes.push({ id, amount: item.amount, date: item.date, type: item.incomeType || 'Other', note: item.note, isImported: true, targetAccountId: item.targetAccountId });
@@ -453,12 +588,31 @@ const App: React.FC = () => {
             {currentView === 'Accounts' && <Accounts wealthItems={visibleWealth} expenses={visibleExpenses} incomes={visibleIncomes} bills={visibleBills} settings={settings} onUpdateWealth={(id, updates) => setWealthItems(p => p.map(w => w.id === id ? { ...w, ...updates } : w))} onDeleteWealth={(id) => setWealthItems(p => p.filter(w => w.id !== id))} onAddWealth={() => {}} onEditAccount={(a) => setEditingRecord({...a, mode: 'Account'})} onAddAccountClick={() => setIsAddingAccount(true)} onOpenCategoryManager={() => setIsShowingCategoryManager(true)} onAddTransferClick={() => setIsAddingTransfer(true)} onDeleteExpense={(id) => setExpenses(p => p.filter(e => e.id !== id))} onDeleteIncome={(id) => setIncomes(p => p.filter(i => i.id !== id))} />}
             {currentView === 'Rules' && <RulesEngine rules={rules.filter(r => settings.dataFilter === 'user' ? !r.isMock : settings.dataFilter === 'mock' ? r.isMock : true)} settings={settings} onAddRule={() => setIsAddingRule(true)} onEditRule={(r) => setEditingRule(r)} onDeleteRule={(id) => setRules(p => p.filter(r => r.id !== id))} />}
             {currentView === 'Notifications' && <NotificationPane notifications={notifications} onClose={() => setCurrentView('Dashboard')} onClear={() => setNotifications([])} isPage={true} />}
-            {/* FIXED: Removed duplicate onUpdateBaseIncome prop to resolve JSX element naming conflict. */}
             {currentView === 'Profile' && <Settings settings={settings} user={user} onLogout={() => setIsAuthenticated(false)} onReset={handleReset} onUpdateAppTheme={(t) => setSettings(s => ({ ...s, appTheme: t }))} onUpdateCurrency={(c) => setSettings(s => ({ ...s, currency: c }))} onUpdateBaseIncome={(income) => setSettings(s => ({ ...s, monthlyIncome: income }))} onUpdateSplit={(split) => setSettings(s => ({ ...s, split }))} onExport={() => {}} onImport={handleCSVImport} onRestore={() => {}} onAddBulk={() => {}} isSyncing={isSyncing} onLoadMockData={handleLoadMockData} onPurgeMockData={handlePurgeMockData} onUpdateDensity={(d) => setSettings(s => ({ ...s, density: d }))} onOpenCategoryManager={() => setIsShowingCategoryManager(true)} onToggleTheme={() => {}} onSync={() => {}} />}
           </div>
           <Footer />
         </div>
       </main>
+
+      {/* REFINED INGESTION LOADING OVERLAY */}
+      {isIngesting && (
+        <div className="fixed inset-0 z-[600] bg-black/40 backdrop-blur-sm flex flex-col items-center justify-center animate-kick">
+           <div className="p-8 bg-brand-surface rounded-[40px] border border-brand-border shadow-2xl flex flex-col items-center gap-6">
+              <div className="relative">
+                 <div className="absolute inset-0 bg-brand-primary/20 blur-2xl rounded-full animate-pulse" />
+                 <BrainCircuit size={64} className="text-brand-primary animate-bounce-slow relative" />
+              </div>
+              <div className="text-center space-y-2">
+                 <h3 className="text-sm font-black uppercase tracking-[0.2em] text-brand-text">Importing expense records..</h3>
+                 <p className="text-[9px] font-bold text-slate-500 uppercase tracking-widest animate-pulse">Synchronizing with registry...</p>
+              </div>
+              <div className="w-48 h-1 bg-brand-accent rounded-full overflow-hidden border border-white/5">
+                 <div className="h-full bg-brand-primary animate-mesh" style={{ width: '100%' }} />
+              </div>
+           </div>
+        </div>
+      )}
+
       {toast && <Toast {...toast} theme={settings.appTheme || 'Batman'} onClose={() => setToast(null)} />}
       <Navbar currentView={currentView} remainingPercentage={globalMetrics.remainingPercentage} netWorth={globalMetrics.netWorth} totalAssets={globalMetrics.totalAssets} totalLiabilities={globalMetrics.totalLiabilities} categoryPercentages={globalMetrics.categoryPercentages} onViewChange={handleNavbarViewChange} />
       {(isAddingExpense || (editingRecord && !editingRecord.mode && !editingRecord.recordType?.includes('income') && !editingRecord.dueDate)) && <AddExpense settings={settings} wealthItems={wealthItems} initialData={editingRecord} onAdd={(e) => { setExpenses(p => [{ ...e, id: Math.random().toString(36).substring(2, 11) }, ...p]); setIsAddingExpense(false); showToast("Expense logged.", 'success'); }} onUpdate={(id, updates) => { handleUpdateExpense(id, updates); setEditingRecord(null); }} onDelete={(id) => { setExpenses(p => p.filter(e => e.id !== id)); setEditingRecord(null); }} onCancel={() => { setIsAddingExpense(false); setEditingRecord(null); }} />}

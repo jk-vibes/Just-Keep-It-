@@ -17,7 +17,9 @@ import {
   History,
   FileText,
   Copy,
-  AlertTriangle
+  AlertTriangle,
+  Play,
+  ArrowRight
 } from 'lucide-react';
 import { auditTransaction, refineBatchTransactions } from '../services/geminiService';
 import { parseSmsLocally } from '../utils/smsParser';
@@ -153,6 +155,10 @@ const SwipeableItem: React.FC<{
   const isDuplicate = !!activeAiSuggestion?.isDuplicateOf;
   const hasDistinctNote = item.note && item.note !== item.merchant && item.note !== item.subCategory;
 
+  // FIELD HIGHLIGHT LOGIC
+  const isCatDiff = activeAiSuggestion && (item.mainCategory !== activeAiSuggestion.mainCategory || item.subCategory !== activeAiSuggestion.subCategory);
+  const isMerchantDiff = activeAiSuggestion && (item.merchant !== activeAiSuggestion.merchant);
+
   return (
     <div className={`relative overflow-hidden transition-all duration-300 ${isDeleting ? 'max-h-0 opacity-0' : 'max-h-[300px] opacity-100'} animate-slide-up`}>
       <div className="absolute inset-0 bg-rose-500 flex items-center justify-end px-6">
@@ -182,7 +188,8 @@ const SwipeableItem: React.FC<{
               </div>
               <div className="min-w-0 flex flex-col pt-0.5">
                 <div className="flex items-center gap-1.5 overflow-hidden">
-                  <div className={`flex items-center gap-1 font-extrabold ${isCompact ? 'text-[11px]' : 'text-[12px]'} truncate leading-tight transition-all ${isAvoidFlagged ? 'text-rose-500 dark:text-rose-400' : 'text-brand-text'}`}>
+                  {/* Category Field Highlight */}
+                  <div className={`flex items-center gap-1 font-extrabold ${isCompact ? 'text-[11px]' : 'text-[12px]'} truncate leading-tight transition-all rounded-md px-1 -mx-1 ${isCatDiff ? 'ring-1 ring-indigo-400/50 bg-indigo-500/5 animate-pulse' : ''} ${isAvoidFlagged ? 'text-rose-500 dark:text-rose-400' : 'text-brand-text'}`}>
                     {recordType === 'income' ? <span>{item.type}</span> : (
                        <>
                          <span className="opacity-50">{item.mainCategory || item.category}</span>
@@ -202,7 +209,8 @@ const SwipeableItem: React.FC<{
                 {!isCompact && (
                   <div className="flex flex-col gap-0.5 mt-1">
                     <div className="flex items-center gap-1.5">
-                      <span className={`text-[7px] font-black uppercase px-1.5 py-0.5 rounded truncate max-w-[120px] bg-black/40 ${isAvoidFlagged ? 'text-rose-500' : 'text-slate-500'}`}>
+                      {/* Merchant Field Highlight */}
+                      <span className={`text-[7px] font-black uppercase px-1.5 py-0.5 rounded truncate max-w-[120px] transition-all ${isMerchantDiff ? 'ring-1 ring-indigo-500/30 bg-indigo-500/10' : 'bg-black/40'} ${isDuplicate ? 'ring-1 ring-rose-500/50 bg-rose-500/10' : ''} ${isAvoidFlagged ? 'text-rose-500' : 'text-slate-500'}`}>
                         {item.merchant || 'General'}
                       </span>
                       <p className={`text-[7px] font-bold text-slate-500 uppercase tracking-widest leading-none`}>
@@ -213,7 +221,7 @@ const SwipeableItem: React.FC<{
                 )}
                 {isCompact && (
                    <div className="flex flex-col gap-0.5 mt-0.5">
-                     <p className={`text-[7px] font-bold uppercase tracking-widest leading-none ${isAvoidFlagged ? 'text-rose-500/70' : 'text-slate-500'}`}>
+                     <p className={`text-[7px] font-bold uppercase tracking-widest leading-none transition-all px-1 -mx-1 rounded ${isMerchantDiff ? 'bg-indigo-500/10 text-indigo-400' : isAvoidFlagged ? 'text-rose-500/70' : 'text-slate-500'}`}>
                        {new Date(item.date).toLocaleDateString(undefined, { month: 'short', day: 'numeric' }).toUpperCase()} • {item.merchant || 'GEN'}
                      </p>
                    </div>
@@ -221,7 +229,8 @@ const SwipeableItem: React.FC<{
               </div>
             </div>
           </div>
-          <p className={`font-black ${isCompact ? 'text-[13px]' : 'text-[15px]'} tracking-tight ${recordType === 'income' ? 'text-emerald-500' : (recordType === 'transfer' || recordType === 'bill_payment') ? 'text-indigo-500' : (isAvoidFlagged ? 'text-rose-500' : 'text-brand-text')}`}>
+          {/* Amount Highlight for Duplicates */}
+          <p className={`font-black ${isCompact ? 'text-[13px]' : 'text-[15px]'} tracking-tight px-1 rounded transition-all ${isDuplicate ? 'ring-1 ring-rose-500/50 bg-rose-500/5 animate-pulse' : ''} ${recordType === 'income' ? 'text-emerald-500' : (recordType === 'transfer' || recordType === 'bill_payment') ? 'text-indigo-500' : (isAvoidFlagged ? 'text-rose-500' : 'text-brand-text')}`}>
             {recordType === 'income' ? '+' : '-'}{currencySymbol}{Math.round(amount).toLocaleString()}
           </p>
         </div>
@@ -234,24 +243,39 @@ const SwipeableItem: React.FC<{
         )}
         
         {showFloatingPopup && activeAiSuggestion && (
-           <div className={`mt-2 p-2 rounded-xl shadow-xl animate-kick border flex items-center justify-between transition-colors ${isDuplicate ? 'bg-rose-600 border-rose-400/30' : 'bg-indigo-600 border-indigo-400/30'}`}>
-              <div className="flex flex-col min-w-0 mr-2">
-                 <p className="text-[7px] font-black text-white/70 uppercase tracking-widest mb-0.5">
-                    {isDuplicate ? 'Redundancy Detected' : activeAiSuggestion.potentialAvoid ? 'Tactical Avoid' : 'Neural Scan Suggestion'}
-                 </p>
-                 <p className="text-[9px] font-black text-white uppercase truncate">
-                    {isDuplicate ? 'Remove duplicate record' : `${activeAiSuggestion.mainCategory} • ${activeAiSuggestion.subCategory}`}
-                 </p>
-                 {!isDuplicate && activeAiSuggestion.note && (
-                   <p className="text-[6px] font-bold text-white/50 italic truncate">"{activeAiSuggestion.note}"</p>
-                 )}
+           <div className={`mt-2 p-2 rounded-xl shadow-xl animate-kick border flex flex-col gap-2 transition-colors ${isDuplicate ? 'bg-rose-600 border-rose-400/30' : 'bg-indigo-600 border-indigo-400/30'}`}>
+              <div className="flex items-center justify-between">
+                <div className="flex flex-col min-w-0 mr-2">
+                   <p className="text-[7px] font-black text-white/70 uppercase tracking-widest mb-0.5">
+                      {isDuplicate ? 'Redundancy Detected' : activeAiSuggestion.potentialAvoid ? 'Tactical Avoid' : 'Neural Scan Suggestion'}
+                   </p>
+                   
+                   {/* DIFF DISPLAY IN POPUP */}
+                   <div className="flex items-center gap-1.5 text-white">
+                      {isCatDiff ? (
+                        <div className="flex items-center gap-1">
+                          <span className="text-[9px] font-black opacity-50 line-through truncate max-w-[80px]">{item.subCategory}</span>
+                          <ArrowRight size={8} />
+                          <span className="text-[10px] font-black uppercase truncate">{activeAiSuggestion.subCategory}</span>
+                        </div>
+                      ) : (
+                        <p className="text-[9px] font-black text-white uppercase truncate">
+                          {isDuplicate ? 'Remove duplicate record' : `${activeAiSuggestion.mainCategory} • ${activeAiSuggestion.subCategory}`}
+                        </p>
+                      )}
+                   </div>
+                   
+                   {!isDuplicate && activeAiSuggestion.note && (
+                     <p className="text-[6px] font-bold text-white/50 italic truncate">"{activeAiSuggestion.note}"</p>
+                   )}
+                </div>
+                <button 
+                  onClick={handleApplyAiSuggestion}
+                  className="bg-white text-indigo-600 px-3 py-2 rounded-lg text-[8px] font-black uppercase tracking-tight shadow-sm active:scale-95 transition-all shrink-0"
+                >
+                  {isDuplicate ? 'Purge Record' : 'Commit & Rule'}
+                </button>
               </div>
-              <button 
-                onClick={handleApplyAiSuggestion}
-                className="bg-white text-indigo-600 px-3 py-1.5 rounded-lg text-[8px] font-black uppercase tracking-tight shadow-sm active:scale-95 transition-all shrink-0"
-              >
-                {isDuplicate ? 'Purge Record' : 'Commit & Rule'}
-              </button>
            </div>
         )}
       </div>
@@ -377,6 +401,48 @@ const Ledger: React.FC<LedgerProps> = ({
     );
   };
 
+  const handleApplyRules = () => {
+    triggerHaptic();
+    if (!rules || rules.length === 0) {
+      showToast("No rules defined in the Rule Engine.", "error");
+      return;
+    }
+
+    const unconfirmedExpenses = filteredRecords.filter(r => r.recordType === 'expense' && !r.isConfirmed);
+    if (unconfirmedExpenses.length === 0) {
+      showToast("No unconfirmed records to process.", "info");
+      return;
+    }
+
+    let appliedCount = 0;
+    unconfirmedExpenses.forEach(exp => {
+      const merchant = (exp.merchant || '').toLowerCase();
+      const note = (exp.note || '').toLowerCase();
+      
+      const match = rules.find(rule => {
+        const kw = rule.keyword.toLowerCase();
+        return merchant.includes(kw) || note.includes(kw);
+      });
+
+      if (match) {
+        onUpdateExpense(exp.id, {
+          category: match.category,
+          mainCategory: match.mainCategory,
+          subCategory: match.subCategory,
+          ruleId: match.id,
+          isConfirmed: true
+        });
+        appliedCount++;
+      }
+    });
+
+    if (appliedCount > 0) {
+      showToast(`Successfully applied rules to ${appliedCount} records.`, "success");
+    } else {
+      showToast("No matches found for existing rules.", "info");
+    }
+  };
+
   const handleBatchRefine = async () => {
     triggerHaptic();
     // Only refine items that are not confirmed or rule-matched (Respect user edits)
@@ -443,6 +509,9 @@ const Ledger: React.FC<LedgerProps> = ({
           <p className="text-[7px] font-bold text-brand-headerText/50 uppercase tracking-[0.2em] mt-1">Audit Registry</p>
         </div>
         <div className="flex items-center gap-1.5">
+           <button onClick={handleApplyRules} title="Run Rule Engine" className="p-2 bg-white/10 rounded-xl text-brand-headerText hover:bg-white/20 transition-all active:scale-95">
+                <Zap size={16} strokeWidth={2.5} />
+           </button>
            <button onClick={handleBatchRefine} disabled={isRefining} className={`p-2 rounded-xl transition-all active:scale-95 ${isShowingAISuggestionsOnly ? 'bg-white/20 text-brand-headerText' : 'bg-white/10 text-brand-headerText'}`}>
                 {isRefining ? <Loader2 size={16} className="animate-spin" /> : <Wand2 size={16} strokeWidth={2.5} />}
            </button>
@@ -471,7 +540,6 @@ const Ledger: React.FC<LedgerProps> = ({
            <button onClick={() => { triggerHaptic(); onAddIncome(); }} className="p-1.5 rounded-lg text-emerald-500 active:scale-90 transition-transform" title="Add Income"><Banknote size={18} strokeWidth={3} /></button>
            <button onClick={() => { triggerHaptic(); onAddRecord(); }} className="p-1.5 rounded-lg text-brand-accentUi active:scale-90 transition-transform" title="Add Expense"><Plus size={18} strokeWidth={3} /></button>
            <button onClick={() => { triggerHaptic(); setSearchOpen(!isSearchOpen); }} className={`p-1.5 rounded-lg transition-all ${isSearchOpen ? 'bg-indigo-600 text-white' : 'text-slate-500'}`}><Search size={16} /></button>
-           <button onClick={() => { triggerHaptic(); setShowImportModal(true); }} className="p-1.5 text-slate-500 active:scale-90"><Sparkles size={16} /></button>
         </div>
       </div>
 

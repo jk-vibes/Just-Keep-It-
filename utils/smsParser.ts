@@ -1,4 +1,3 @@
-
 import { Category, WealthType, WealthCategory } from '../types';
 import { SUB_CATEGORIES } from '../constants';
 
@@ -8,7 +7,6 @@ export interface ParsedEntry {
   merchant?: string;
   source?: string;
   category?: Category;
-  /* Add mainCategory, note, and intelligentNote to resolve property existence errors in Ledger and Import processors */
   mainCategory?: string;
   subCategory?: string;
   note?: string;
@@ -99,7 +97,6 @@ const PATTERNS = {
 
 function cleanAmount(val: string): number {
   if (!val) return 0;
-  // Remove non-numeric characters except for dots and minus signs
   const cleaned = val.replace(/[^0-9.-]/g, '');
   const num = parseFloat(cleaned);
   return isNaN(num) ? 0 : num;
@@ -109,12 +106,18 @@ function resolveCategorySignals(text: string): { category: Category; subCategory
   const combined = text.toLowerCase();
   if (PATTERNS.ccPayment.test(combined)) return { category: 'Uncategorized', subCategory: 'Bill Payment' };
   
-  // Fix: add explicit type cast for Object.entries values to fix property 'find' does not exist on type 'unknown'
+  // Specific Merchant Pre-matching to reduce 'General' tags
+  if (combined.includes('zomato') || combined.includes('swiggy')) return { category: 'Wants', subCategory: 'Dining' };
+  if (combined.includes('uber') || combined.includes('ola')) return { category: 'Needs', subCategory: 'Transport' };
+  if (combined.includes('amazon') || combined.includes('flipkart')) return { category: 'Wants', subCategory: 'Shopping' };
+  if (combined.includes('netflix') || combined.includes('spotify') || combined.includes('hotstar')) return { category: 'Wants', subCategory: 'Subscription' };
+  if (combined.includes('airtel') || combined.includes('jio')) return { category: 'Needs', subCategory: 'Internet' };
+
   for (const [parent, children] of Object.entries(SUB_CATEGORIES) as [string, string[]][]) {
     const match = children.find(child => combined.includes(child.toLowerCase()));
     if (match) return { category: parent as Category, subCategory: match };
   }
-  return { category: 'Uncategorized', subCategory: 'General' };
+  return { category: 'Uncategorized', subCategory: 'Other' };
 }
 
 function isDate(val: string): boolean {
@@ -142,10 +145,10 @@ export function parseSmsLocally(text: string): ParsedEntry[] {
   const rows = parseCSV(text);
   if (rows.length === 0) return [];
   
-  // Header detection logic
   const headerIdx = rows.findIndex(row => {
     const r = row.join(',').toUpperCase();
-    return (r.includes('DATE') && (r.includes('AMOUNT') || r.includes('DEBIT') || r.includes('CREDIT') || r.includes('VALUE'))) || 
+    return (r.includes('DATE') && (r.includes('AMOUNT') || r.includes('DEBIT') || r.includes('CREDIT') || r.includes('VALUE') || r.includes('BAL'))) || 
+           (r.includes('TRANS') && (r.includes('DESC') || r.includes('NARRATION') || r.includes('REFERENCE'))) ||
            (r.includes('ACCOUNT') && (r.includes('BAL') || r.includes('NAME') || r.includes('TYPE')));
   });
 
@@ -153,7 +156,6 @@ export function parseSmsLocally(text: string): ParsedEntry[] {
     return parseStructuredRows(rows, headerIdx);
   }
 
-  // Robust Generic Fallback: If no headers, try to find a row that looks like Date, Description, Amount
   return parseGenericRows(rows);
 }
 
@@ -163,14 +165,14 @@ function parseStructuredRows(rows: string[][], headerIdx: number): ParsedEntry[]
   
   const getCol = (names: string[]) => headers.findIndex(h => names.some(n => h.includes(n)));
   
-  const dateCol = getCol(['DATE', 'TIMESTAMP', 'TIME', 'TXN DATE', 'PERIOD']);
-  const merchantCol = getCol(['PLACE', 'MERCHANT', 'DESCRIPTION', 'NOTE', 'PAYEE', 'PARTICULAR', 'NARRATION', 'REMARKS', 'DESC', 'ACCOUNT NAME', 'DETAILS']);
-  const amountCol = getCol(['AMOUNT', 'VALUE', 'TOTAL', 'TRANSACTION AMT', 'SUM']);
-  const balanceCol = getCol(['BALANCE', 'BAL', 'CURRENT BAL', 'OUTSTANDING', 'AVAILABLE']);
-  const debitCol = headers.findIndex(h => h === 'DEBIT' || h === 'DR' || h.includes('WITHDRAW') || h.includes('OUT'));
-  const creditCol = headers.findIndex(h => h === 'CREDIT' || h === 'CR' || h.includes('DEPOSIT') || h.includes('IN'));
-  const typeCol = getCol(['DR/CR', 'TYPE', 'MODE', 'TRANSACTION TYPE']);
-  const accountCol = getCol(['ACCOUNT', 'BANK', 'SOURCE', 'ACC']);
+  const dateCol = getCol(['DATE', 'TIMESTAMP', 'TIME', 'TXN DATE', 'PERIOD', 'TRANS. DATE', 'VALUE DATE']);
+  const merchantCol = getCol(['PLACE', 'MERCHANT', 'DESCRIPTION', 'NOTE', 'PAYEE', 'PARTICULAR', 'NARRATION', 'REMARKS', 'DESC', 'ACCOUNT NAME', 'DETAILS', 'REFERENCE', 'TRANS. DESC']);
+  const amountCol = getCol(['AMOUNT', 'VALUE', 'TOTAL', 'TRANSACTION AMT', 'SUM', 'TRANS AMT']);
+  const balanceCol = getCol(['BALANCE', 'BAL', 'CURRENT BAL', 'OUTSTANDING', 'AVAILABLE', 'AVL BAL']);
+  const debitCol = headers.findIndex(h => h === 'DEBIT' || h === 'DR' || h.includes('WITHDRAW') || h.includes('OUT') || h.includes('DEBIT AMT'));
+  const creditCol = headers.findIndex(h => h === 'CREDIT' || h === 'CR' || h.includes('DEPOSIT') || h.includes('IN') || h.includes('CREDIT AMT'));
+  const typeCol = getCol(['DR/CR', 'TYPE', 'MODE', 'TRANSACTION TYPE', 'TXN TYPE']);
+  const accountCol = getCol(['ACCOUNT', 'BANK', 'SOURCE', 'ACC', 'A/C']);
 
   for (let i = headerIdx + 1; i < rows.length; i++) {
     const row = rows[i];
@@ -200,7 +202,7 @@ function parseStructuredRows(rows: string[][], headerIdx: number): ParsedEntry[]
 
       const dateStr = normalizeDate(row[dateCol]);
 
-      if (typeStr.includes('ACCOUNT') || typeStr.includes('ASSET') || typeStr.includes('LIABILITY') || balanceCol !== -1 && amountCol === -1) {
+      if (typeStr.includes('ACCOUNT') || typeStr.includes('ASSET') || typeStr.includes('LIABILITY') || (balanceCol !== -1 && amountCol === -1 && debitCol === -1)) {
           const isLiability = typeStr.includes('LIABILITY') || typeStr.includes('DEBT') || typeStr.includes('LOAN') || typeStr.includes('CARD');
           results.push({
               entryType: 'Account',
@@ -248,7 +250,6 @@ function parseGenericRows(rows: string[][]): ParsedEntry[] {
     let desc = 'Imported Item';
     let amountVal = 0;
     
-    // Find the first column that looks like a date, one for description, one for amount
     const dateIdx = row.findIndex(v => isDate(v));
     const amountIdx = row.findIndex(v => v !== '' && !isNaN(cleanAmount(v)) && cleanAmount(v) !== 0);
     
