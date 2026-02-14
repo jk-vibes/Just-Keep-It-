@@ -104,6 +104,7 @@ export interface RecurringItem {
   merchant?: string;
   frequency: Frequency;
   nextDueDate: string;
+  accountId?: string; // Added link to account
   isMock?: boolean;
   isImported?: boolean;
 }

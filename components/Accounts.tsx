@@ -12,7 +12,7 @@ import {
   LayoutGrid, List, BarChart as BarChartIcon,
   ArrowUpRight, ArrowDownRight, Layers,
   ReceiptText, Sparkles, Plus, Tag,
-  Clock
+  Clock, RefreshCcw, CalendarClock
 } from 'lucide-react';
 import { 
   AreaChart, Area, 
@@ -74,9 +74,10 @@ const getCategoryIcon = (category: WealthCategory) => {
 const UltraCompactRow: React.FC<{
   item: WealthItem;
   unpaidBills: number;
+  relevantBillDate?: string;
   currencySymbol: string;
   onClick: () => void;
-}> = ({ item, unpaidBills, currencySymbol, onClick }) => {
+}> = ({ item, unpaidBills, relevantBillDate, currencySymbol, onClick }) => {
   const isCC = item.category === 'Credit Card';
   const displayValue = item.value + unpaidBills;
   const availableLimit = isCC ? Math.max(0, (item.limit || 0) - displayValue) : 0;
@@ -89,6 +90,24 @@ const UltraCompactRow: React.FC<{
       return 'N/A';
     }
   }, [item.date]);
+
+  const billDueDate = useMemo(() => {
+    if (!relevantBillDate) return null;
+    try {
+      const d = new Date(relevantBillDate);
+      return d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' }).toUpperCase();
+    } catch {
+      return null;
+    }
+  }, [relevantBillDate]);
+
+  const labelPrefix = useMemo(() => {
+    if (isCC && billDueDate) return 'DUE';
+    if (item.type === 'Liability') return 'LAST UPDATED';
+    return 'REFRESHED';
+  }, [isCC, billDueDate, item.type]);
+
+  const displayDate = (isCC && billDueDate) ? billDueDate : refreshDate;
 
   return (
     <div 
@@ -120,9 +139,9 @@ const UltraCompactRow: React.FC<{
           {item.type === 'Liability' && displayValue > 0 ? '-' : ''}{currencySymbol}{Math.abs(Math.round(displayValue)).toLocaleString()}
         </span>
         <div className="flex items-center gap-1 mt-1 text-slate-500">
-          <Clock size={6} className="opacity-50" />
-          <span className="text-[6px] font-black uppercase tracking-widest leading-none">
-            {item.type === 'Liability' ? 'Due' : 'Bal'} • {refreshDate}
+          {labelPrefix === 'DUE' ? <CalendarClock size={6} className="text-indigo-400" /> : <RefreshCcw size={6} className="opacity-40" />}
+          <span className={`text-[6px] font-black uppercase tracking-widest leading-none ${labelPrefix === 'DUE' ? 'text-indigo-400' : ''}`}>
+            {labelPrefix} • {displayDate}
           </span>
         </div>
       </div>
@@ -212,10 +231,18 @@ const Accounts: React.FC<AccountsProps> = ({
     return groups;
   }, [wealthItems]);
 
-  const accountBillsMap = useMemo(() => {
-    const map: Record<string, number> = {};
+  const accountBillsInfo = useMemo(() => {
+    const map: Record<string, { amount: number, earliestDueDate?: string }> = {};
     bills.filter(b => !b.isPaid).forEach(b => {
-      if (b.accountId) map[b.accountId] = (map[b.accountId] || 0) + b.amount;
+      if (b.accountId) {
+        if (!map[b.accountId]) {
+          map[b.accountId] = { amount: 0, earliestDueDate: b.dueDate };
+        }
+        map[b.accountId].amount += b.amount;
+        if (b.dueDate && (!map[b.accountId].earliestDueDate || b.dueDate < (map[b.accountId].earliestDueDate || ''))) {
+          map[b.accountId].earliestDueDate = b.dueDate;
+        }
+      }
     });
     return map;
   }, [bills]);
@@ -357,7 +384,8 @@ const Accounts: React.FC<AccountsProps> = ({
                         <UltraCompactRow 
                           key={item.id} 
                           item={item} 
-                          unpaidBills={accountBillsMap[item.id] || 0}
+                          unpaidBills={accountBillsInfo[item.id]?.amount || 0}
+                          relevantBillDate={accountBillsInfo[item.id]?.earliestDueDate}
                           currencySymbol={currencySymbol} 
                           onClick={() => onEditAccount(item)} 
                         />
@@ -387,7 +415,8 @@ const Accounts: React.FC<AccountsProps> = ({
                         <UltraCompactRow 
                           key={item.id} 
                           item={item} 
-                          unpaidBills={accountBillsMap[item.id] || 0}
+                          unpaidBills={accountBillsInfo[item.id]?.amount || 0}
+                          relevantBillDate={accountBillsInfo[item.id]?.earliestDueDate}
                           currencySymbol={currencySymbol} 
                           onClick={() => onEditAccount(item)} 
                         />

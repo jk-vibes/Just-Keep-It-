@@ -615,7 +615,27 @@ const App: React.FC = () => {
 
       {toast && <Toast {...toast} theme={settings.appTheme || 'Batman'} onClose={() => setToast(null)} />}
       <Navbar currentView={currentView} remainingPercentage={globalMetrics.remainingPercentage} netWorth={globalMetrics.netWorth} totalAssets={globalMetrics.totalAssets} totalLiabilities={globalMetrics.totalLiabilities} categoryPercentages={globalMetrics.categoryPercentages} onViewChange={handleNavbarViewChange} />
-      {(isAddingExpense || (editingRecord && !editingRecord.mode && !editingRecord.recordType?.includes('income') && !editingRecord.dueDate)) && <AddExpense settings={settings} wealthItems={wealthItems} initialData={editingRecord} onAdd={(e) => { setExpenses(p => [{ ...e, id: Math.random().toString(36).substring(2, 11) }, ...p]); setIsAddingExpense(false); showToast("Expense logged.", 'success'); }} onUpdate={(id, updates) => { handleUpdateExpense(id, updates); setEditingRecord(null); }} onDelete={(id) => { setExpenses(p => p.filter(e => e.id !== id)); setEditingRecord(null); }} onCancel={() => { setIsAddingExpense(false); setEditingRecord(null); }} />}
+      {(isAddingExpense || (editingRecord && !editingRecord.mode && !editingRecord.recordType?.includes('income') && !editingRecord.dueDate)) && <AddExpense settings={settings} wealthItems={wealthItems} initialData={editingRecord} onAdd={(e, freq) => { 
+        const id = Math.random().toString(36).substring(2, 11);
+        setExpenses(p => [{ ...e, id }, ...p]); 
+        if (freq && freq !== 'None') {
+          const recId = Math.random().toString(36).substring(2, 11);
+          setRecurringItems(p => [{
+            id: recId,
+            amount: e.amount,
+            bucket: e.category,
+            category: e.mainCategory,
+            subCategory: e.subCategory,
+            note: e.note || '',
+            merchant: e.merchant,
+            frequency: freq,
+            nextDueDate: e.date,
+            accountId: e.sourceAccountId // Linked account preserved
+          }, ...p]);
+        }
+        setIsAddingExpense(false); 
+        showToast(freq !== 'None' ? "Subscription tracked." : "Expense logged.", 'success'); 
+      }} onUpdate={(id, updates) => { handleUpdateExpense(id, updates); setEditingRecord(null); }} onDelete={(id) => { setExpenses(p => p.filter(e => e.id !== id)); setEditingRecord(null); }} onCancel={() => { setIsAddingExpense(false); setEditingRecord(null); }} />}
       {(isAddingIncome || (editingRecord && editingRecord.recordType === 'income')) && <AddIncome settings={settings} wealthItems={wealthItems} initialData={editingRecord} onAdd={(i) => { setIncomes(p => [{ ...i, id: Math.random().toString(36).substring(2, 11) }, ...p]); setIsAddingIncome(false); showToast("Inflow recorded.", 'success'); }} onUpdate={(id, updates) => { setIncomes(p => p.map(i => i.id === id ? { ...i, ...updates } : i)); setEditingRecord(null); showToast("Income updated.", 'success'); }} onDelete={(id) => { setIncomes(p => p.filter(i => i.id !== id)); setEditingRecord(null); }} onCancel={() => { setIsAddingIncome(false); setEditingRecord(null); }} />}
       {(isAddingBill || (editingRecord && editingRecord.dueDate)) && <AddBill settings={settings} wealthItems={wealthItems} initialData={editingRecord} onAddBills={(newBills) => { setBills(p => [...p, ...newBills]); setIsAddingBill(false); showToast("Obligation added.", 'success'); }} onUpdate={(id, updates) => { setBills(prev => prev.map(b => b.id === id ? { ...b, ...updates } : b)); setEditingRecord(null); }} onDelete={(id) => { setBills(p => p.filter(b => b.id !== id)); setEditingRecord(null); }} onCancel={() => { setIsAddingBill(false); setEditingRecord(null); }} />}
       {(isAddingAccount || (editingRecord && editingRecord.mode === 'Account')) && <AddAccount settings={settings} initialData={editingRecord} onSave={(a) => { setWealthItems(p => [...p, { ...a, id: Math.random().toString(36).substring(2, 11) }]); setIsAddingAccount(false); showToast("Account registered.", 'success'); }} onUpdate={(id, updates) => setWealthItems(p => p.map(w => w.id === id ? { ...w, ...updates } : w))} onDelete={(id) => { setWealthItems(p => p.filter(w => w.id !== id)); setEditingRecord(null); }} onCancel={() => { setIsAddingAccount(false); setEditingRecord(null); }} />}
