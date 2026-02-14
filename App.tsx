@@ -155,7 +155,6 @@ const App: React.FC = () => {
   const [fatherlyAdvice, setFatherlyAdvice] = useState<string | null>(null);
   const [lastAdviceFetch, setLastAdviceFetch] = useState<number>(0);
 
-  // Track notified budget goal IDs for the current month to avoid duplicate alerts
   const [notifiedBudgetGoalIds, setNotifiedBudgetGoalIds] = useState<Record<string, string[]>>({});
 
   const addNotification = useCallback((notif: Omit<Notification, 'timestamp' | 'read'> & { id?: string }) => {
@@ -171,28 +170,19 @@ const App: React.FC = () => {
     }
   }, [addNotification]);
 
-  // Threshold monitor logic
   useEffect(() => {
     if (isLoading || isResetting || !budgetItems.length) return;
-
     const m = new Date().getMonth();
     const y = new Date().getFullYear();
     const monthKey = `${y}-${m}`;
-
     budgetItems.forEach(goal => {
-      const spent = expenses
-        .filter(e => {
+      const spent = expenses.filter(e => {
           const d = new Date(e.date);
-          return d.getMonth() === m && d.getFullYear() === y && 
-                 e.category === goal.bucket && e.mainCategory === goal.category;
-        })
-        .reduce((sum, e) => sum + e.amount, 0);
-
-      const threshold = 0.8; // 80%
+          return d.getMonth() === m && d.getFullYear() === y && e.category === goal.bucket && e.mainCategory === goal.category;
+        }).reduce((sum, e) => sum + e.amount, 0);
+      const threshold = 0.8;
       const percentage = goal.amount > 0 ? spent / goal.amount : 0;
-      
       const notifiedThisMonth = notifiedBudgetGoalIds[monthKey] || [];
-
       if (percentage >= threshold && !notifiedThisMonth.includes(goal.id)) {
         const symbol = getCurrencySymbol(settings.currency);
         addNotification({
@@ -201,11 +191,7 @@ const App: React.FC = () => {
           message: `Spending for "${goal.name}" has exceeded 80% of your ${symbol}${Math.round(goal.amount)} budget. Current: ${symbol}${Math.round(spent)}.`,
           severity: 'warning'
         });
-
-        setNotifiedBudgetGoalIds(prev => ({
-          ...prev,
-          [monthKey]: [...(prev[monthKey] || []), goal.id]
-        }));
+        setNotifiedBudgetGoalIds(prev => ({ ...prev, [monthKey]: [...(prev[monthKey] || []), goal.id] }));
       }
     });
   }, [expenses, budgetItems, isLoading, isResetting, addNotification, settings.currency, notifiedBudgetGoalIds]);
@@ -221,64 +207,30 @@ const App: React.FC = () => {
   }, []);
 
   const handleUpdateExpense = useCallback((id: string, updates: Partial<Expense>, frequency?: Frequency) => {
-    // Check if we are updating a recurring item
     const isRecurringUpdate = recurringItems.some(r => r.id === id);
-    
     if (isRecurringUpdate) {
-      setRecurringItems(prev => prev.map(r => r.id === id ? {
-        ...r,
-        amount: updates.amount ?? r.amount,
-        bucket: updates.category ?? r.bucket,
-        category: updates.mainCategory ?? r.category,
-        subCategory: updates.subCategory ?? r.subCategory,
-        merchant: updates.merchant ?? r.merchant,
-        note: updates.note ?? r.note,
-        frequency: frequency ?? r.frequency,
-        accountId: updates.sourceAccountId ?? r.accountId
-      } : r));
+      setRecurringItems(prev => prev.map(r => r.id === id ? { ...r, amount: updates.amount ?? r.amount, bucket: updates.category ?? r.bucket, category: updates.mainCategory ?? r.category, subCategory: updates.subCategory ?? r.subCategory, merchant: updates.merchant ?? r.merchant, note: updates.note ?? r.note, frequency: frequency ?? r.frequency, accountId: updates.sourceAccountId ?? r.accountId } : r));
     } else {
       setExpenses(prev => {
         const target = prev.find(e => e.id === id);
         if (!target) return prev;
-        
-        if (updates.isAIUpgraded && updates.merchant && updates.category) {
+        if (updates.isAIUpgraded && updates.merchant && updates.category && updates.category !== 'Uncategorized') {
           setRules(currentRules => {
-            const exists = currentRules.some(r => r.keyword.toLowerCase() === updates.merchant?.toLowerCase());
+            const kw = updates.merchant!.trim();
+            const exists = currentRules.some(r => r.keyword.toLowerCase() === kw.toLowerCase());
             if (!exists) {
-              return [{
-                id: Math.random().toString(36).substring(2, 11),
-                keyword: updates.merchant!,
-                category: updates.category as Category,
-                mainCategory: updates.mainCategory || 'General',
-                subCategory: updates.subCategory || 'General'
-              }, ...currentRules];
+              return [{ id: Math.random().toString(36).substring(2, 11), keyword: kw, category: updates.category as Category, mainCategory: updates.mainCategory || 'General', subCategory: updates.subCategory || 'General' }, ...currentRules];
             }
             return currentRules;
           });
         }
-
         return prev.map(e => e.id === id ? { ...e, ...updates } : e);
       });
     }
-    
-    // Handle switching from non-recurring to recurring or updating frequency
     if (frequency && frequency !== 'None' && !isRecurringUpdate) {
       const recId = Math.random().toString(36).substring(2, 11);
-      setRecurringItems(prev => [{
-        id: recId,
-        amount: updates.amount || 0,
-        bucket: (updates.category as Category) || 'Uncategorized',
-        category: updates.mainCategory || 'General',
-        subCategory: updates.subCategory || 'General',
-        note: updates.note || '',
-        merchant: updates.merchant || '',
-        frequency: frequency,
-        nextDueDate: updates.date || new Date().toISOString().split('T')[0],
-        accountId: updates.sourceAccountId,
-        isMock: false
-      }, ...prev]);
+      setRecurringItems(prev => [{ id: recId, amount: updates.amount || 0, bucket: (updates.category as Category) || 'Uncategorized', category: updates.mainCategory || 'General', subCategory: updates.subCategory || 'General', note: updates.note || '', merchant: updates.merchant || '', frequency: frequency, nextDueDate: updates.date || new Date().toISOString().split('T')[0], accountId: updates.sourceAccountId, isMock: false }, ...prev]);
     }
-
     showToast("Record updated.", 'success');
   }, [recurringItems, showToast]);
 
@@ -288,13 +240,9 @@ const App: React.FC = () => {
   }, [showToast]);
 
   const handleBulkDelete = useCallback((ids: string[], type: 'expense' | 'income' | 'recurring') => {
-    if (type === 'expense') {
-      setExpenses(prev => prev.filter(e => !ids.includes(e.id)));
-    } else if (type === 'income') {
-      setIncomes(prev => prev.filter(i => !ids.includes(i.id)));
-    } else if (type === 'recurring') {
-      setRecurringItems(prev => prev.filter(r => !ids.includes(r.id)));
-    }
+    if (type === 'expense') setExpenses(prev => prev.filter(e => !ids.includes(e.id)));
+    else if (type === 'income') setIncomes(prev => prev.filter(i => !ids.includes(i.id)));
+    else if (type === 'recurring') setRecurringItems(prev => prev.filter(r => !ids.includes(r.id)));
     showToast(`Purged ${ids.length} records.`, 'success');
   }, [showToast]);
 
@@ -318,26 +266,9 @@ const App: React.FC = () => {
     triggerHaptic(50);
     setBills(prev => prev.map(b => b.id === bill.id ? { ...b, isPaid: true } : b));
     const id = Math.random().toString(36).substring(2, 11);
-    const newExpense: Expense = {
-      id,
-      amount: bill.amount,
-      date: new Date().toISOString().split('T')[0],
-      category: bill.category,
-      mainCategory: bill.mainCategory,
-      subCategory: bill.subCategory || 'Bill Payment',
-      merchant: bill.merchant,
-      note: `Bill Payment: ${bill.merchant}`,
-      isConfirmed: true,
-      sourceAccountId: accountId,
-      billId: bill.id
-    };
+    const newExpense: Expense = { id, amount: bill.amount, date: new Date().toISOString().split('T')[0], category: bill.category, mainCategory: bill.mainCategory, subCategory: bill.subCategory || 'Bill Payment', merchant: bill.merchant, note: `Bill Payment: ${bill.merchant}`, isConfirmed: true, sourceAccountId: accountId, billId: bill.id };
     setExpenses(prev => [newExpense, ...prev]);
-    setWealthItems(prev => prev.map(w => {
-      if (w.id === accountId) {
-        return { ...w, value: w.type === 'Liability' ? w.value + bill.amount : w.value - bill.amount };
-      }
-      return w;
-    }));
+    setWealthItems(prev => prev.map(w => { if (w.id === accountId) return { ...w, value: w.type === 'Liability' ? w.value + bill.amount : w.value - bill.amount }; return w; }));
     setSettlingBill(null);
     showToast("Bill settlement authorized.", 'success');
   }, [showToast]);
@@ -382,9 +313,7 @@ const App: React.FC = () => {
     showToast("Simulation records purged.", 'success');
   }, [showToast]);
 
-  const handleReset = useCallback(() => {
-    triggerHaptic(50); setIsResetting(true); localStorage.clear(); window.location.href = window.location.origin;
-  }, []);
+  const handleReset = useCallback(() => { triggerHaptic(50); setIsResetting(true); localStorage.clear(); window.location.href = window.location.origin; }, []);
 
   const visibleWealth = useMemo(() => settings.dataFilter === 'user' ? wealthItems.filter(w => !w.isMock) : settings.dataFilter === 'mock' ? wealthItems.filter(w => w.isMock) : wealthItems, [wealthItems, settings.dataFilter]);
   const visibleExpenses = useMemo(() => settings.dataFilter === 'user' ? expenses.filter(e => !e.isMock) : settings.dataFilter === 'mock' ? expenses.filter(e => e.isMock) : expenses, [expenses, settings.dataFilter]);
@@ -405,10 +334,7 @@ const App: React.FC = () => {
     const monthlyIncome = visibleIncomes.filter(i => { const d = new Date(i.date); return d.getMonth() === m && d.getFullYear() === y; }).reduce((sum, i) => sum + i.amount, 0) || settings.monthlyIncome || 0;
     const totalSpent = totals.Needs + totals.Wants + totals.Savings + totals.Avoids;
     const categoryPercentages = { Needs: 0, Wants: 0, Savings: 0, Avoids: 0 }; 
-    (['Needs', 'Wants', 'Savings', 'Avoids'] as const).forEach(cat => {
-      const catBudget = visibleBudgetItems.filter(b => b.bucket === cat).reduce((sum, b) => sum + b.amount, 0);
-      categoryPercentages[cat] = catBudget > 0 ? (totals[cat] / catBudget) * 100 : 0;
-    });
+    (['Needs', 'Wants', 'Savings', 'Avoids'] as const).forEach(cat => { const catBudget = visibleBudgetItems.filter(b => b.bucket === cat).reduce((sum, b) => sum + b.amount, 0); categoryPercentages[cat] = catBudget > 0 ? (totals[cat] / catBudget) * 100 : 0; });
     return { categoryPercentages, remainingPercentage: monthlyIncome > 0 ? Math.max(0, ((monthlyIncome - totalSpent) / monthlyIncome) * 100) : 0, netWorth, healthStatus: netWorth > 0 ? 'positive' : netWorth < 0 ? 'negative' : 'neutral', totalAssets: assets, totalLiabilities: accountLiabilities + billLiabilities };
   }, [visibleExpenses, visibleIncomes, visibleWealth, visibleBudgetItems, visibleBills, settings, viewDate]);
 
@@ -428,14 +354,9 @@ const App: React.FC = () => {
     setIsLoading(false);
   }, []);
 
-  useEffect(() => {
-    if (!isLoading && !isResetting) { localStorage.setItem(STORAGE_KEY, JSON.stringify({ settings, expenses, incomes, wealthItems, bills, user, budgetItems, rules, recurringItems, notifications, notifiedBudgetGoalIds })); }
-  }, [settings, expenses, incomes, wealthItems, bills, user, budgetItems, rules, recurringItems, notifications, notifiedBudgetGoalIds, isLoading, isResetting]);
+  useEffect(() => { if (!isLoading && !isResetting) { localStorage.setItem(STORAGE_KEY, JSON.stringify({ settings, expenses, incomes, wealthItems, bills, user, budgetItems, rules, recurringItems, notifications, notifiedBudgetGoalIds })); } }, [settings, expenses, incomes, wealthItems, bills, user, budgetItems, rules, recurringItems, notifications, notifiedBudgetGoalIds, isLoading, isResetting]);
 
-  useEffect(() => {
-    const root = window.document.documentElement; root.setAttribute('data-theme', settings.appTheme || 'Batman'); root.setAttribute('data-density', settings.density || 'Compact');
-    if (['Spiderman', 'Naruto'].includes(settings.appTheme || '')) { root.classList.remove('dark'); } else { root.classList.add('dark'); }
-  }, [settings.appTheme, settings.density]);
+  useEffect(() => { const root = window.document.documentElement; root.setAttribute('data-theme', settings.appTheme || 'Batman'); root.setAttribute('data-density', settings.density || 'Compact'); if (['Spiderman', 'Naruto'].includes(settings.appTheme || '')) { root.classList.remove('dark'); } else { root.classList.add('dark'); } }, [settings.appTheme, settings.density]);
 
   const handleCSVImport = useCallback((file: File) => {
     const reader = new FileReader();
@@ -444,119 +365,44 @@ const App: React.FC = () => {
       try {
         const text = e.target?.result as string;
         const results = parseSmsLocally(text);
-        if (!results || results.length === 0) {
-           showToast("No financial records identified in the source.", 'error');
-           setIsIngesting(false);
-           return;
-        }
-        triggerHaptic(50);
-        showToast("Importing expense records..", 'info');
-        
+        if (!results || results.length === 0) { showToast("No financial records identified in the source.", 'error'); setIsIngesting(false); return; }
+        triggerHaptic(50); showToast("Importing expense records..", 'info');
         const latestTxDate = expenses.length > 0 ? Math.max(...expenses.map(ex => new Date(ex.date).getTime())) : 0;
         const freshExpenses = results.filter(r => (r.entryType === 'Expense' || r.entryType === 'Transfer') && r.amount);
-        
         let aiMetadata: any[] = [];
-        try {
-          if (freshExpenses.length > 0) {
-             const chunk = freshExpenses.slice(0, 35).map(f => ({ 
-               merchant: f.merchant || 'General', 
-               amount: f.amount || 0, 
-               date: f.date,
-               note: f.note || f.rawContent 
-             }));
-             aiMetadata = await batchProcessNewTransactions(chunk);
-          }
-        } catch (aiErr) {
-          console.warn("Neural enrichment throttled, proceeding with raw signals.");
-        }
-
+        try { if (freshExpenses.length > 0) { const chunk = freshExpenses.slice(0, 35).map(f => ({ merchant: f.merchant || 'General', amount: f.amount || 0, date: f.date, note: f.note || f.rawContent })); aiMetadata = await batchProcessNewTransactions(chunk); } } catch (aiErr) { }
         const newExpensesToCommit: Expense[] = [];
         const newIncomesToCommit: Income[] = [];
         const newRulesToCommit: BudgetRule[] = [];
         const newlyAddedRuleKeywords = new Set<string>();
-
         results.forEach((res) => {
           const resDate = new Date(res.date).getTime();
           const isStale = resDate <= latestTxDate;
           const isDuplicate = expenses.some(ex => ex.date === res.date && Math.abs(ex.amount - (res.amount || 0)) < 1 && (ex.merchant?.toLowerCase() === res.merchant?.toLowerCase()));
-          
           if (isDuplicate || isStale) return; 
-
           const id = Math.random().toString(36).substring(2, 11);
-          
           let accountId = '';
           const liquidAccounts = wealthItems.filter(i => ['Savings', 'Cash', 'Credit Card'].includes(i.category));
           const hint = (res.accountName || res.merchant || '').toLowerCase();
-          const accountMatch = wealthItems.find(w => 
-            w.name.toLowerCase().includes(hint) || 
-            hint.includes(w.name.toLowerCase()) ||
-            (w.alias && (w.alias.toLowerCase().includes(hint) || hint.includes(w.alias.toLowerCase())))
-          );
-          if (accountMatch) accountId = accountMatch.id;
-          else if (liquidAccounts.length === 1) accountId = liquidAccounts[0].id;
-
+          const accountMatch = wealthItems.find(w => w.name.toLowerCase().includes(hint) || hint.includes(w.name.toLowerCase()) || (w.alias && (w.alias.toLowerCase().includes(hint) || hint.includes(w.alias.toLowerCase()))));
+          if (accountMatch) accountId = accountMatch.id; else if (liquidAccounts.length === 1) accountId = liquidAccounts[0].id;
           if (res.entryType === 'Expense' || res.entryType === 'Transfer') {
              const aiMatch = aiMetadata.find(meta => meta.merchant.toLowerCase().includes((res.merchant || '').toLowerCase()));
              const isEnriched = !!aiMatch;
-             
-             newExpensesToCommit.push({
-               id,
-               amount: res.amount || 0,
-               date: res.date,
-               category: (isEnriched ? aiMatch.category : (res.category || 'Uncategorized')),
-               mainCategory: (isEnriched ? aiMatch.mainCategory : (res.mainCategory || 'General')),
-               subCategory: (isEnriched ? aiMatch.subCategory : (res.subCategory || 'Other')),
-               merchant: (isEnriched ? aiMatch.merchant : (res.merchant || 'General')),
-               note: (isEnriched ? aiMatch.intelligentNote : (res.note || 'Imported Entry')),
-               isConfirmed: true,
-               isImported: true,
-               sourceAccountId: accountId,
-               isAIUpgraded: isEnriched
-             });
-
-             if (isEnriched && aiMatch.merchant) {
+             newExpensesToCommit.push({ id, amount: res.amount || 0, date: res.date, category: (isEnriched ? aiMatch.category : (res.category || 'Uncategorized')), mainCategory: (isEnriched ? aiMatch.mainCategory : (res.mainCategory || 'General')), subCategory: (isEnriched ? aiMatch.subCategory : (res.subCategory || 'Other')), merchant: (isEnriched ? aiMatch.merchant : (res.merchant || 'General')), note: (isEnriched ? aiMatch.intelligentNote : (res.note || 'Imported Entry')), isConfirmed: true, isImported: true, sourceAccountId: accountId, isAIUpgraded: isEnriched });
+             if (isEnriched && aiMatch.merchant && aiMatch.category !== 'Uncategorized') {
                 const keywordLower = aiMatch.merchant.toLowerCase();
                 const ruleExists = rules.some(r => r.keyword.toLowerCase() === keywordLower);
-                if (!ruleExists && !newlyAddedRuleKeywords.has(keywordLower)) {
-                  newRulesToCommit.push({
-                    id: Math.random().toString(36).substring(2, 11),
-                    keyword: aiMatch.merchant,
-                    category: aiMatch.category,
-                    mainCategory: aiMatch.mainCategory,
-                    subCategory: aiMatch.subCategory,
-                    isImported: true
-                  });
-                  newlyAddedRuleKeywords.add(keywordLower);
-                }
+                if (!ruleExists && !newlyAddedRuleKeywords.has(keywordLower)) { newRulesToCommit.push({ id: Math.random().toString(36).substring(2, 11), keyword: aiMatch.merchant, category: aiMatch.category, mainCategory: aiMatch.mainCategory, subCategory: aiMatch.subCategory, isImported: true }); newlyAddedRuleKeywords.add(keywordLower); }
              }
-          } else if (res.entryType === 'Income') {
-             newIncomesToCommit.push({
-               id,
-               amount: res.amount || 0,
-               date: res.date,
-               type: res.incomeType as any || 'Other',
-               note: res.note || 'Imported Income',
-               isImported: true,
-               targetAccountId: accountId
-             });
-          }
+          } else if (res.entryType === 'Income') { newIncomesToCommit.push({ id, amount: res.amount || 0, date: res.date, type: res.incomeType as any || 'Other', note: res.note || 'Imported Income', isImported: true, targetAccountId: accountId }); }
         });
-
         if (newExpensesToCommit.length > 0) setExpenses(prev => [...newExpensesToCommit, ...prev]);
         if (newIncomesToCommit.length > 0) setIncomes(prev => [...newIncomesToCommit, ...prev]);
         if (newRulesToCommit.length > 0) setRules(prev => [...prev, ...newRulesToCommit]);
-
         const totalCount = newExpensesToCommit.length + newIncomesToCommit.length;
-        if (totalCount > 0) {
-          showToast(`Successfully synchronized ${totalCount} records.`, 'success');
-        } else {
-          showToast("No new records found to synchronize.", 'info');
-        }
-      } catch (err) { 
-        showToast("Signal ingestion failure. Ensure CSV format is valid.", 'error'); 
-      } finally {
-        setIsIngesting(false);
-      }
+        if (totalCount > 0) showToast(`Successfully synchronized ${totalCount} records.`, 'success'); else showToast("No new records found to synchronize.", 'info');
+      } catch (err) { showToast("Signal ingestion failure. Ensure CSV format is valid.", 'error'); } finally { setIsIngesting(false); }
     };
     reader.readAsText(file);
   }, [expenses, rules, wealthItems, showToast]);
@@ -566,28 +412,17 @@ const App: React.FC = () => {
     const newIncomes: Income[] = [];
     const newRules: BudgetRule[] = [];
     const internalRuleTrack = new Set<string>();
-
     finalItems.forEach(item => {
       const id = Math.random().toString(36).substring(2, 11);
       if (item.entryType === 'Expense' || item.entryType === 'Transfer') {
         newExpenses.push({ id, amount: item.amount, date: item.date, category: item.category || 'Uncategorized', mainCategory: item.mainCategory || 'General', subCategory: item.subCategory || 'Other', merchant: item.merchant, note: item.note || item.intelligentNote, isConfirmed: true, isImported: true, sourceAccountId: item.targetAccountId, isAIUpgraded: item.isAIEnriched });
-        if (item.isAIEnriched && item.merchant) {
-           const kw = item.merchant.toLowerCase();
-           const exists = rules.some(r => r.keyword.toLowerCase() === kw);
-           if (!exists && !internalRuleTrack.has(kw)) { 
-              newRules.push({ id: Math.random().toString(36).substring(2, 11), keyword: item.merchant, category: item.category, mainCategory: item.mainCategory, subCategory: item.subCategory, isImported: true }); 
-              internalRuleTrack.add(kw);
-           }
-        }
-      } else if (item.entryType === 'Income') {
-        newIncomes.push({ id, amount: item.amount, date: item.date, type: item.incomeType || 'Other', note: item.note, isImported: true, targetAccountId: item.targetAccountId });
-      }
+        if (item.isAIEnriched && item.merchant && item.category !== 'Uncategorized') { const kw = item.merchant.toLowerCase(); const exists = rules.some(r => r.keyword.toLowerCase() === kw); if (!exists && !internalRuleTrack.has(kw)) { newRules.push({ id: Math.random().toString(36).substring(2, 11), keyword: item.merchant, category: item.category, mainCategory: item.mainCategory, subCategory: item.subCategory, isImported: true }); internalRuleTrack.add(kw); } }
+      } else if (item.entryType === 'Income') { newIncomes.push({ id, amount: item.amount, date: item.date, type: item.incomeType || 'Other', note: item.note, isImported: true, targetAccountId: item.targetAccountId }); }
     });
     if (newExpenses.length > 0) setExpenses(prev => [...newExpenses, ...prev]);
     if (newIncomes.length > 0) setIncomes(prev => [...newIncomes, ...prev]);
     if (newRules.length > 0) setRules(prev => [...prev, ...newRules]);
-    setStagedImportItems(null);
-    showToast(`Successfully synchronized ${finalItems.length} records.`, 'success');
+    setStagedImportItems(null); showToast(`Successfully synchronized ${finalItems.length} records.`, 'success');
   };
 
   if (isResetting || isLoading) return <div className="w-full h-screen bg-brand-bg flex items-center justify-center"><Loader2 className="animate-spin text-brand-primary" size={32} /></div>;
@@ -597,12 +432,8 @@ const App: React.FC = () => {
     if (v === 'Affordability') setIsShowingAskMe(true);
     else if (v === 'AddExpense') setIsAddingExpense(true);
     else if (v === 'AddIncome') setIsAddingIncome(true);
-    else if (v === 'Add') {
-      if (currentView === 'Accounts') setIsAddingAccount(true);
-      else if (currentView === 'Budget') setIsAddingBudget(true);
-      else if (currentView === 'Rules') setIsAddingRule(true);
-      else setIsAddingExpense(true);
-    } else setCurrentView(v);
+    else if (v === 'Add') { if (currentView === 'Accounts') setIsAddingAccount(true); else if (currentView === 'Budget') setIsAddingBudget(true); else if (currentView === 'Rules') setIsAddingRule(true); else setIsAddingExpense(true); }
+    else setCurrentView(v);
   };
 
   return (
@@ -643,7 +474,6 @@ const App: React.FC = () => {
         </div>
       </main>
 
-      {/* REFINED INGESTION LOADING OVERLAY */}
       {isIngesting && (
         <div className="fixed inset-0 z-[600] bg-black/40 backdrop-blur-sm flex flex-col items-center justify-center animate-kick">
            <div className="p-8 bg-brand-surface rounded-[40px] border border-brand-border shadow-2xl flex flex-col items-center gap-6">
@@ -655,42 +485,14 @@ const App: React.FC = () => {
                  <h3 className="text-sm font-black uppercase tracking-[0.2em] text-brand-text">Importing expense records..</h3>
                  <p className="text-[9px] font-bold text-slate-500 uppercase tracking-widest animate-pulse">Synchronizing with registry...</p>
               </div>
-              <div className="w-48 h-1 bg-brand-accent rounded-full overflow-hidden border border-white/5">
-                 <div className="h-full bg-brand-primary animate-mesh" style={{ width: '100%' }} />
-              </div>
+              <div className="w-48 h-1 bg-brand-accent rounded-full overflow-hidden border border-white/5"><div className="h-full bg-brand-primary animate-mesh" style={{ width: '100%' }} /></div>
            </div>
         </div>
       )}
 
       {toast && <Toast {...toast} theme={settings.appTheme || 'Batman'} onClose={() => setToast(null)} />}
       <Navbar currentView={currentView} remainingPercentage={globalMetrics.remainingPercentage} netWorth={globalMetrics.netWorth} totalAssets={globalMetrics.totalAssets} totalLiabilities={globalMetrics.totalLiabilities} categoryPercentages={globalMetrics.categoryPercentages} onViewChange={handleNavbarViewChange} />
-      {(isAddingExpense || (editingRecord && !editingRecord.mode && !editingRecord.recordType?.includes('income') && !editingRecord.dueDate)) && <AddExpense settings={settings} wealthItems={wealthItems} initialData={editingRecord} onRegisterCategory={handleRegisterCategory} onAdd={(e, freq) => { 
-        const id = Math.random().toString(36).substring(2, 11);
-        setExpenses(p => [{ ...e, id }, ...p]); 
-        if (freq && freq !== 'None') {
-          const recId = Math.random().toString(36).substring(2, 11);
-          setRecurringItems(p => [{
-            id: recId,
-            amount: e.amount,
-            bucket: e.category,
-            category: e.mainCategory,
-            subCategory: e.subCategory,
-            note: e.note || '',
-            merchant: e.merchant,
-            frequency: freq,
-            nextDueDate: e.date,
-            accountId: e.sourceAccountId,
-            isMock: false
-          }, ...p]);
-        }
-        setIsAddingExpense(false); 
-        showToast(freq !== 'None' ? "Subscription tracked." : "Expense logged.", 'success'); 
-      }} onUpdate={(id, updates, freq) => { handleUpdateExpense(id, updates, freq); setEditingRecord(null); }} onDelete={(id) => { 
-        const isRec = recurringItems.some(r => r.id === id);
-        if (isRec) handleBulkDelete([id], 'recurring');
-        else handleBulkDelete([id], 'expense');
-        setEditingRecord(null); 
-      }} onCancel={() => { setIsAddingExpense(false); setEditingRecord(null); }} />}
+      {(isAddingExpense || (editingRecord && !editingRecord.mode && !editingRecord.recordType?.includes('income') && !editingRecord.dueDate)) && <AddExpense settings={settings} wealthItems={wealthItems} initialData={editingRecord} onRegisterCategory={handleRegisterCategory} onAdd={(e, freq) => { const id = Math.random().toString(36).substring(2, 11); setExpenses(p => [{ ...e, id }, ...p]); if (freq && freq !== 'None') { const recId = Math.random().toString(36).substring(2, 11); setRecurringItems(p => [{ id: recId, amount: e.amount, bucket: e.category, category: e.mainCategory, subCategory: e.subCategory, note: e.note || '', merchant: e.merchant, frequency: freq, nextDueDate: e.date, accountId: e.sourceAccountId, isMock: false }, ...p]); } setIsAddingExpense(false); showToast(freq !== 'None' ? "Subscription tracked." : "Expense logged.", 'success'); }} onUpdate={(id, updates, freq) => { handleUpdateExpense(id, updates, freq); setEditingRecord(null); }} onDelete={(id) => { const isRec = recurringItems.some(r => r.id === id); if (isRec) handleBulkDelete([id], 'recurring'); else handleBulkDelete([id], 'expense'); setEditingRecord(null); }} onCancel={() => { setIsAddingExpense(false); setEditingRecord(null); }} />}
       {(isAddingIncome || (editingRecord && editingRecord.recordType === 'income')) && <AddIncome settings={settings} wealthItems={wealthItems} initialData={editingRecord} onRegisterIncomeType={(type) => handleRegisterCategory('Uncategorized', 'Inflow', type)} onAdd={(i) => { setIncomes(p => [{ ...i, id: Math.random().toString(36).substring(2, 11) }, ...p]); setIsAddingIncome(false); showToast("Inflow recorded.", 'success'); }} onUpdate={(id, updates) => { setIncomes(p => p.map(i => i.id === id ? { ...i, ...updates } : i)); setEditingRecord(null); showToast("Income updated.", 'success'); }} onDelete={(id) => { setIncomes(p => p.filter(i => i.id !== id)); setEditingRecord(null); }} onCancel={() => { setIsAddingIncome(false); setEditingRecord(null); }} />}
       {(isAddingBill || (editingRecord && editingRecord.dueDate)) && <AddBill settings={settings} wealthItems={wealthItems} initialData={editingRecord} onAddBills={(newBills) => { setBills(p => [...p, ...newBills]); setIsAddingBill(false); showToast("Obligation added.", 'success'); }} onUpdate={(id, updates) => { setBills(prev => prev.map(b => b.id === id ? { ...b, ...updates } : b)); setEditingRecord(null); }} onDelete={(id) => { setBills(p => p.filter(b => b.id !== id)); setEditingRecord(null); }} onCancel={() => { setIsAddingBill(false); setEditingRecord(null); }} />}
       {(isAddingAccount || (editingRecord && editingRecord.mode === 'Account')) && <AddAccount settings={settings} initialData={editingRecord} onSave={(a) => { setWealthItems(p => [...p, { ...a, id: Math.random().toString(36).substring(2, 11) }]); setIsAddingAccount(false); showToast("Account registered.", 'success'); }} onUpdate={(id, updates) => setWealthItems(p => p.map(w => w.id === id ? { ...w, ...updates } : w))} onDelete={(id) => { setWealthItems(p => p.filter(w => w.id !== id)); setEditingRecord(null); }} onCancel={() => { setIsAddingAccount(false); setEditingRecord(null); }} />}
