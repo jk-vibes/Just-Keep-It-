@@ -159,9 +159,9 @@ const GridAccountItem: React.FC<{
   return (
     <div 
       onClick={() => { triggerHaptic(); onClick(); }}
-      className="flex justify-between items-center py-1.5 px-1 hover:bg-brand-accent/30 transition-all cursor-pointer rounded-md"
+      className="flex justify-between items-center py-1 px-1 hover:bg-brand-accent/30 transition-all cursor-pointer rounded-md"
     >
-      <span className="text-[9px] font-normal text-brand-text capitalize truncate mr-2 leading-tight">{item.alias || item.name}</span>
+      <span className="text-[10px] font-normal text-brand-text capitalize truncate mr-2 leading-tight">{item.alias || item.name}</span>
       <span className={`text-[10px] font-semibold tracking-tighter leading-none shrink-0 ${item.type === 'Liability' ? 'text-rose-500' : 'text-brand-text'}`}>
         {item.type === 'Liability' && displayValue > 0 ? '-' : ''}{currencySymbol}{Math.abs(Math.round(displayValue)).toLocaleString()}
       </span>
@@ -198,7 +198,6 @@ const Accounts: React.FC<AccountsProps> = ({
     const liquid = wealthItems.filter(i => i.type === 'Investment' && ['Savings', 'Cash'].includes(i.category)).reduce((sum, i) => sum + i.value, 0);
     const totalUnpaidBills = bills.filter(b => !b.isPaid).reduce((sum, b) => sum + b.amount, 0);
     
-    // Liabilities only account for outstanding debt, not limits.
     const totalLiabilities = Math.round(accountLiabilities + totalUnpaidBills);
     const netWorth = Math.round(assets - totalLiabilities);
     
@@ -213,24 +212,34 @@ const Accounts: React.FC<AccountsProps> = ({
       acc[item.category] = (acc[item.category] || 0) + item.value;
       return acc;
     }, {} as Record<string, number>);
-    const billDist = bills.filter(b => !b.isPaid).reduce((acc, b) => {
-      acc[b.category] = (acc[b.category] || 0) + b.amount;
-      return acc;
-    }, {} as Record<string, number>);
 
     return { 
       totalAssets: Math.round(assets),
       totalLiabilities,
-      totalUnpaidBills: Math.round(totalUnpaidBills),
       netWorth,
       liquid: Math.round(liquid),
       solvencyRatio,
       liquidityRatio,
       assetChartData: Object.entries(assetDist).map(([name, value]) => ({ name, value: Math.round(value as number) })).sort((a, b) => b.value - a.value),
-      liabilityChartData: Object.entries(liabilityDist).map(([name, value]) => ({ name, value: Math.round(value as number) })).sort((a, b) => b.value - a.value),
-      billChartData: Object.entries(billDist).map(([name, value]) => ({ name, value: Math.round(value as number) })).sort((a, b) => b.value - a.value)
+      liabilityChartData: Object.entries(liabilityDist).map(([name, value]) => ({ name, value: Math.round(value as number) })).sort((a, b) => b.value - a.value)
     };
   }, [wealthItems, bills]);
+
+  const accountBillsInfo = useMemo(() => {
+    const map: Record<string, { amount: number, earliestDueDate?: string }> = {};
+    bills.filter(b => !b.isPaid).forEach(b => {
+      if (b.accountId) {
+        if (!map[b.accountId]) {
+          map[b.accountId] = { amount: 0, earliestDueDate: b.dueDate };
+        }
+        map[b.accountId].amount += b.amount;
+        if (b.dueDate && (!map[b.accountId].earliestDueDate || b.dueDate < (map[b.accountId].earliestDueDate || ''))) {
+          map[b.accountId].earliestDueDate = b.dueDate;
+        }
+      }
+    });
+    return map;
+  }, [bills]);
 
   const assetGroups = useMemo(() => {
     const groups: Record<string, WealthItem[]> = {};
@@ -252,27 +261,53 @@ const Accounts: React.FC<AccountsProps> = ({
     return groups;
   }, [wealthItems]);
 
-  const accountBillsInfo = useMemo(() => {
-    const map: Record<string, { amount: number, earliestDueDate?: string }> = {};
-    bills.filter(b => !b.isPaid).forEach(b => {
-      if (b.accountId) {
-        if (!map[b.accountId]) {
-          map[b.accountId] = { amount: 0, earliestDueDate: b.dueDate };
-        }
-        map[b.accountId].amount += b.amount;
-        if (b.dueDate && (!map[b.accountId].earliestDueDate || b.dueDate < (map[b.accountId].earliestDueDate || ''))) {
-          map[b.accountId].earliestDueDate = b.dueDate;
-        }
-      }
-    });
-    return map;
-  }, [bills]);
-
   const totalCCOutstanding = useMemo(() => {
     return wealthItems
       .filter(i => i.type === 'Liability' && i.category === 'Credit Card')
       .reduce((sum, i) => sum + i.value + (accountBillsInfo[i.id]?.amount || 0), 0);
   }, [wealthItems, accountBillsInfo]);
+
+  const renderSideBySideGroups = (groups: Record<string, WealthItem[]>, accentColor: string) => {
+    return Object.keys(groups).sort().map(group => {
+      const items = groups[group];
+      const groupSubtotal = items.reduce((sum, item) => sum + item.value + (accountBillsInfo[item.id]?.amount || 0), 0);
+      
+      // Merge Group and Transaction if only 1 item
+      if (items.length === 1) {
+        const item = items[0];
+        return (
+          <GridAccountItem 
+            key={item.id} 
+            item={item} 
+            unpaidBills={accountBillsInfo[item.id]?.amount || 0} 
+            currencySymbol={currencySymbol} 
+            onClick={() => onEditAccount(item)} 
+          />
+        );
+      }
+
+      // Standard Group with Header
+      return (
+        <div key={group} className="flex flex-col mt-3 first:mt-0">
+          <div className="flex justify-between items-center px-1 mb-1 border-b border-slate-200 dark:border-slate-800 pb-0.5">
+            <span className="text-[11px] font-black text-slate-900 dark:text-slate-100 capitalize">{group}</span>
+            <span className="text-[9px] font-bold text-slate-400">{currencySymbol}{Math.round(groupSubtotal).toLocaleString()}</span>
+          </div>
+          <div className="space-y-0.5">
+            {items.map(item => (
+              <GridAccountItem 
+                key={item.id} 
+                item={item} 
+                unpaidBills={accountBillsInfo[item.id]?.amount || 0} 
+                currencySymbol={currencySymbol} 
+                onClick={() => onEditAccount(item)} 
+              />
+            ))}
+          </div>
+        </div>
+      );
+    });
+  };
 
   return (
     <div className="h-full flex flex-col pb-32 animate-slide-up overflow-hidden">
@@ -290,7 +325,6 @@ const Accounts: React.FC<AccountsProps> = ({
             <button 
               onClick={() => { triggerHaptic(); onOpenCategoryManager(); }} 
               className="p-2 bg-white/10 rounded-xl text-brand-headerText active:scale-95 transition-all"
-              title="Category Master"
             >
               <Tag size={16} />
             </button>
@@ -304,7 +338,6 @@ const Accounts: React.FC<AccountsProps> = ({
               <button 
                 onClick={() => { triggerHaptic(); setRegistryLayout(registryLayout === 'list' ? 'grid' : 'list'); }} 
                 className="p-2 bg-white/10 rounded-xl text-brand-headerText active:scale-95 transition-all"
-                title={registryLayout === 'list' ? "Grid View" : "List View"}
               >
                 {registryLayout === 'list' ? <LayoutGrid size={16} /> : <List size={16} />}
               </button>
@@ -314,12 +347,6 @@ const Accounts: React.FC<AccountsProps> = ({
               className="p-2 bg-white/10 rounded-xl text-brand-headerText active:scale-95 transition-all"
             >
               <Plus size={16} />
-            </button>
-            <button 
-              onClick={() => { triggerHaptic(); onAddTransferClick?.(); }} 
-              className="p-2 bg-white/10 rounded-xl text-brand-headerText active:scale-95 transition-all"
-            >
-              <ArrowRightLeft size={16} />
             </button>
           </div>
         </div>
@@ -353,8 +380,8 @@ const Accounts: React.FC<AccountsProps> = ({
                       <span className="text-[8px] font-black text-slate-500 uppercase tracking-widest">Liquidity index</span>
                    </div>
                    <h3 className="textxl font-black text-indigo-400 tracking-tighter">{Math.round(stats.liquidityRatio)}%</h3>
-                   <div className="w-full h-1 bg-brand-accent/40 rounded-full mt-2 overflow-hidden border border-white/5">
-                      <div className="h-full bg-indigo-500 rounded-full transition-all duration-1000" style={{ width: `${stats.liquidityRatio}%` }} />
+                   <div className="w-full h-1 bg-brand-accent/40 rounded-full mt-2 overflow-hidden">
+                      <div className="h-full bg-indigo-500 transition-all duration-1000" style={{ width: `${stats.liquidityRatio}%` }} />
                    </div>
                 </section>
                 <section className="bg-brand-surface p-4 rounded-[28px] border border-brand-border shadow-sm">
@@ -363,8 +390,8 @@ const Accounts: React.FC<AccountsProps> = ({
                       <span className="text-[8px] font-black text-slate-500 uppercase tracking-widest">Debt burden</span>
                    </div>
                    <h3 className="textxl font-black text-rose-500 tracking-tighter">{currencySymbol}{Math.round(stats.totalLiabilities).toLocaleString()}</h3>
-                   <div className="w-full h-1 bg-brand-accent/40 rounded-full mt-2 overflow-hidden border border-white/5">
-                      <div className="h-full bg-rose-500 rounded-full transition-all duration-1000" style={{ width: `${Math.min(100, (stats.totalLiabilities / (stats.totalAssets || 1)) * 100)}%` }} />
+                   <div className="w-full h-1 bg-brand-accent/40 rounded-full mt-2 overflow-hidden">
+                      <div className="h-full bg-rose-500 transition-all duration-1000" style={{ width: `${Math.min(100, (stats.totalLiabilities / (stats.totalAssets || 1)) * 100)}%` }} />
                    </div>
                 </section>
              </div>
@@ -463,63 +490,29 @@ const Accounts: React.FC<AccountsProps> = ({
                  </div>
               </div>
             ) : (
-              /* SIDE BY SIDE GRID VIEW - OPTIMIZED FOR DENSITY & CLEANLINESS */
               <div className="flex-1 flex flex-col overflow-hidden">
                 <div className="grid grid-cols-2 flex-1 gap-x-2 px-3 py-2 overflow-y-auto no-scrollbar">
-                  {/* ASSETS COLUMN */}
                   <div className="flex flex-col">
-                    <div className="flex justify-between items-end border-b border-emerald-500/20 pb-1 mb-2 sticky top-0 bg-brand-bg/90 backdrop-blur-md z-20">
+                    <div className="flex justify-between items-end pb-1 mb-2 sticky top-0 bg-brand-bg/90 backdrop-blur-md z-20">
                       <span className="text-[8px] font-black text-emerald-500 uppercase tracking-widest">Assets</span>
                       <span className="text-[8px] font-black text-brand-text opacity-80">{currencySymbol}{Math.round(stats.totalAssets).toLocaleString()}</span>
                     </div>
-                    <div className="space-y-3">
-                      {Object.keys(assetGroups).sort().map(group => (
-                        <div key={group} className="flex flex-col">
-                          <span className="text-[9px] font-black text-black dark:text-brand-text capitalize px-1 block mb-1">{group}</span>
-                          <div className="space-y-0.5">
-                            {assetGroups[group].map(item => (
-                              <GridAccountItem 
-                                key={item.id} 
-                                item={item} 
-                                unpaidBills={accountBillsInfo[item.id]?.amount || 0} 
-                                currencySymbol={currencySymbol} 
-                                onClick={() => onEditAccount(item)} 
-                              />
-                            ))}
-                          </div>
-                        </div>
-                      ))}
+                    <div className="space-y-1">
+                      {renderSideBySideGroups(assetGroups, '#10b981')}
                     </div>
                   </div>
 
-                  {/* LIABILITIES COLUMN */}
                   <div className="flex flex-col">
-                    <div className="flex justify-between items-end border-b border-rose-500/20 pb-1 mb-2 sticky top-0 bg-brand-bg/90 backdrop-blur-md z-20">
+                    <div className="flex justify-between items-end pb-1 mb-2 sticky top-0 bg-brand-bg/90 backdrop-blur-md z-20">
                       <span className="text-[8px] font-black text-rose-500 uppercase tracking-widest">Debt</span>
                       <span className="text-[8px] font-black text-brand-text opacity-80">{currencySymbol}{Math.round(stats.totalLiabilities).toLocaleString()}</span>
                     </div>
-                    <div className="space-y-3">
-                      {Object.keys(liabilityGroups).sort().map(group => (
-                        <div key={group} className="flex flex-col">
-                          <span className="text-[9px] font-black text-black dark:text-brand-text capitalize px-1 block mb-1">{group}</span>
-                          <div className="space-y-0.5">
-                            {liabilityGroups[group].map(item => (
-                              <GridAccountItem 
-                                key={item.id} 
-                                item={item} 
-                                unpaidBills={accountBillsInfo[item.id]?.amount || 0} 
-                                currencySymbol={currencySymbol} 
-                                onClick={() => onEditAccount(item)} 
-                              />
-                            ))}
-                          </div>
-                        </div>
-                      ))}
+                    <div className="space-y-1">
+                      {renderSideBySideGroups(liabilityGroups, '#f43f5e')}
                     </div>
                   </div>
                 </div>
 
-                {/* CREDIT CARD OUTSTANDING FOOTER */}
                 <div className="px-4 py-2 border-t border-brand-border bg-brand-accent/10 flex justify-between items-center shrink-0">
                   <div className="flex items-center gap-2">
                     <CreditCard size={12} className="text-rose-500" />
