@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { ReactNode } from 'react';
 import { X, Milestone, CheckCircle2, Star } from 'lucide-react';
 import { triggerHaptic } from '../utils/haptics';
 
@@ -13,6 +13,17 @@ interface LogEntry {
 }
 
 const VERSION_HISTORY: LogEntry[] = [
+  {
+    version: '1.3.0',
+    date: 'FEB 14, 2026',
+    changes: [
+      '⭐ Non-Blocking Ingestion: Integrated CSV and text logs directly into the Ledger header with a real-time background progress indicator.',
+      '⭐ Weekly Pulse: Added a "Weekly Expenditure Pulse" chart to Ledger analytics for identifying mid-month spending surges.',
+      '⭐ Explicit Bucketing: Moved Needs, Wants, Savings, and Avoids labels to dedicated high-visibility badges on the right side of every record.',
+      '⭐ Logic Calibration: Synchronized AI categorization and budget planner to use strict "Savings" terminology for accurate goal tracking.',
+      'Background Synchronization: Removed blocking full-screen overlays during file processing for a smoother multi-tasking experience.'
+    ]
+  },
   {
     version: '1.2.6',
     date: 'FEB 9, 2026',

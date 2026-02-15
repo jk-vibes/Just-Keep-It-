@@ -33,7 +33,7 @@ import { generate12MonthData } from './utils/mockData';
 import { getFatherlyAdvice, batchProcessNewTransactions } from './services/geminiService';
 
 const STORAGE_KEY = 'jk_budget_data_whole_num_v12';
-const APP_VERSION = 'v1.2.9';
+const APP_VERSION = 'v1.3.0';
 
 const INITIAL_SETTINGS: UserSettings = {
   monthlyIncome: 350000,
@@ -116,7 +116,6 @@ const Toast: React.FC<{
 
 const App: React.FC = () => {
   const [isLoading, setIsLoading] = useState(true);
-  const [isIngesting, setIsIngesting] = useState(false);
   const [isResetting, setIsResetting] = useState(false);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [settings, setSettings] = useState<UserSettings>(INITIAL_SETTINGS);
@@ -358,53 +357,79 @@ const App: React.FC = () => {
 
   useEffect(() => { const root = window.document.documentElement; root.setAttribute('data-theme', settings.appTheme || 'Batman'); root.setAttribute('data-density', settings.density || 'Compact'); if (['Spiderman', 'Naruto'].includes(settings.appTheme || '')) { root.classList.remove('dark'); } else { root.classList.add('dark'); } }, [settings.appTheme, settings.density]);
 
-  const handleCSVImport = useCallback((file: File) => {
-    const reader = new FileReader();
-    reader.onload = async (e) => {
-      setIsIngesting(true);
-      try {
-        const text = e.target?.result as string;
-        const results = parseSmsLocally(text);
-        if (!results || results.length === 0) { showToast("No financial records identified in the source.", 'error'); setIsIngesting(false); return; }
-        triggerHaptic(50); showToast("Importing expense records..", 'info');
-        const latestTxDate = expenses.length > 0 ? Math.max(...expenses.map(ex => new Date(ex.date).getTime())) : 0;
-        const freshExpenses = results.filter(r => (r.entryType === 'Expense' || r.entryType === 'Transfer') && r.amount);
-        let aiMetadata: any[] = [];
-        try { if (freshExpenses.length > 0) { const chunk = freshExpenses.slice(0, 35).map(f => ({ merchant: f.merchant || 'General', amount: f.amount || 0, date: f.date, note: f.note || f.rawContent })); aiMetadata = await batchProcessNewTransactions(chunk); } } catch (aiErr) { }
-        const newExpensesToCommit: Expense[] = [];
-        const newIncomesToCommit: Income[] = [];
-        const newRulesToCommit: BudgetRule[] = [];
-        const newlyAddedRuleKeywords = new Set<string>();
-        results.forEach((res) => {
-          const resDate = new Date(res.date).getTime();
-          const isStale = resDate <= latestTxDate;
-          const isDuplicate = expenses.some(ex => ex.date === res.date && Math.abs(ex.amount - (res.amount || 0)) < 1 && (ex.merchant?.toLowerCase() === res.merchant?.toLowerCase()));
-          if (isDuplicate || isStale) return; 
-          const id = Math.random().toString(36).substring(2, 11);
-          let accountId = '';
-          const liquidAccounts = wealthItems.filter(i => ['Savings', 'Cash', 'Credit Card'].includes(i.category));
-          const hint = (res.accountName || res.merchant || '').toLowerCase();
-          const accountMatch = wealthItems.find(w => w.name.toLowerCase().includes(hint) || hint.includes(w.name.toLowerCase()) || (w.alias && (w.alias.toLowerCase().includes(hint) || hint.includes(w.alias.toLowerCase()))));
-          if (accountMatch) accountId = accountMatch.id; else if (liquidAccounts.length === 1) accountId = liquidAccounts[0].id;
-          if (res.entryType === 'Expense' || res.entryType === 'Transfer') {
-             const aiMatch = aiMetadata.find(meta => meta.merchant.toLowerCase().includes((res.merchant || '').toLowerCase()));
-             const isEnriched = !!aiMatch;
-             newExpensesToCommit.push({ id, amount: res.amount || 0, date: res.date, category: (isEnriched ? aiMatch.category : (res.category || 'Uncategorized')), mainCategory: (isEnriched ? aiMatch.mainCategory : (res.mainCategory || 'General')), subCategory: (isEnriched ? aiMatch.subCategory : (res.subCategory || 'Other')), merchant: (isEnriched ? aiMatch.merchant : (res.merchant || 'General')), note: (isEnriched ? aiMatch.intelligentNote : (res.note || 'Imported Entry')), isConfirmed: true, isImported: true, sourceAccountId: accountId, isAIUpgraded: isEnriched });
-             if (isEnriched && aiMatch.merchant && aiMatch.category !== 'Uncategorized') {
-                const keywordLower = aiMatch.merchant.toLowerCase();
-                const ruleExists = rules.some(r => r.keyword.toLowerCase() === keywordLower);
-                if (!ruleExists && !newlyAddedRuleKeywords.has(keywordLower)) { newRulesToCommit.push({ id: Math.random().toString(36).substring(2, 11), keyword: aiMatch.merchant, category: aiMatch.category, mainCategory: aiMatch.mainCategory, subCategory: aiMatch.subCategory, isImported: true }); newlyAddedRuleKeywords.add(keywordLower); }
-             }
-          } else if (res.entryType === 'Income') { newIncomesToCommit.push({ id, amount: res.amount || 0, date: res.date, type: res.incomeType as any || 'Other', note: res.note || 'Imported Income', isImported: true, targetAccountId: accountId }); }
-        });
-        if (newExpensesToCommit.length > 0) setExpenses(prev => [...newExpensesToCommit, ...prev]);
-        if (newIncomesToCommit.length > 0) setIncomes(prev => [...newIncomesToCommit, ...prev]);
-        if (newRulesToCommit.length > 0) setRules(prev => [...prev, ...newRulesToCommit]);
-        const totalCount = newExpensesToCommit.length + newIncomesToCommit.length;
-        if (totalCount > 0) showToast(`Successfully synchronized ${totalCount} records.`, 'success'); else showToast("No new records found to synchronize.", 'info');
-      } catch (err) { showToast("Signal ingestion failure. Ensure CSV format is valid.", 'error'); } finally { setIsIngesting(false); }
-    };
-    reader.readAsText(file);
+  const handleCSVImport = useCallback(async (file: File) => {
+    return new Promise<void>((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = async (e) => {
+        try {
+          const text = e.target?.result as string;
+          const results = parseSmsLocally(text);
+          if (!results || results.length === 0) { 
+            showToast("No financial records identified in the source.", 'error'); 
+            resolve();
+            return; 
+          }
+          triggerHaptic(50);
+          const latestTxDate = expenses.length > 0 ? Math.max(...expenses.map(ex => new Date(ex.date).getTime())) : 0;
+          const freshExpenses = results.filter(r => (r.entryType === 'Expense' || r.entryType === 'Transfer') && r.amount);
+          
+          let aiMetadata: any[] = [];
+          try { 
+            if (freshExpenses.length > 0) { 
+              const chunk = freshExpenses.slice(0, 35).map(f => ({ merchant: f.merchant || 'General', amount: f.amount || 0, date: f.date, note: f.note || f.rawContent })); 
+              aiMetadata = await batchProcessNewTransactions(chunk); 
+            } 
+          } catch (aiErr) {}
+
+          const newExpensesToCommit: Expense[] = [];
+          const newIncomesToCommit: Income[] = [];
+          const newRulesToCommit: BudgetRule[] = [];
+          const newlyAddedRuleKeywords = new Set<string>();
+
+          results.forEach((res) => {
+            const resDate = new Date(res.date).getTime();
+            const isStale = resDate <= latestTxDate;
+            const isDuplicate = expenses.some(ex => ex.date === res.date && Math.abs(ex.amount - (res.amount || 0)) < 1 && (ex.merchant?.toLowerCase() === res.merchant?.toLowerCase()));
+            if (isDuplicate || isStale) return; 
+            const id = Math.random().toString(36).substring(2, 11);
+            let accountId = '';
+            const liquidAccounts = wealthItems.filter(i => ['Savings', 'Cash', 'Credit Card'].includes(i.category));
+            const hint = (res.accountName || res.merchant || '').toLowerCase();
+            const accountMatch = wealthItems.find(w => w.name.toLowerCase().includes(hint) || hint.includes(w.name.toLowerCase()) || (w.alias && (w.alias.toLowerCase().includes(hint) || hint.includes(w.alias.toLowerCase()))));
+            if (accountMatch) accountId = accountMatch.id; else if (liquidAccounts.length === 1) accountId = liquidAccounts[0].id;
+            
+            if (res.entryType === 'Expense' || res.entryType === 'Transfer') {
+               const aiMatch = aiMetadata.find(meta => meta.merchant.toLowerCase().includes((res.merchant || '').toLowerCase()));
+               const isEnriched = !!aiMatch;
+               newExpensesToCommit.push({ id, amount: res.amount || 0, date: res.date, category: (isEnriched ? aiMatch.category : (res.category || 'Uncategorized')), mainCategory: (isEnriched ? aiMatch.mainCategory : (res.mainCategory || 'General')), subCategory: (isEnriched ? aiMatch.subCategory : (res.subCategory || 'Other')), merchant: (isEnriched ? aiMatch.merchant : (res.merchant || 'General')), note: (isEnriched ? aiMatch.intelligentNote : (res.note || 'Imported Entry')), isConfirmed: true, isImported: true, sourceAccountId: accountId, isAIUpgraded: isEnriched });
+               if (isEnriched && aiMatch.merchant && aiMatch.category !== 'Uncategorized') {
+                  const keywordLower = aiMatch.merchant.toLowerCase();
+                  const ruleExists = rules.some(r => r.keyword.toLowerCase() === keywordLower);
+                  if (!ruleExists && !newlyAddedRuleKeywords.has(keywordLower)) { 
+                    newRulesToCommit.push({ id: Math.random().toString(36).substring(2, 11), keyword: aiMatch.merchant, category: aiMatch.category, mainCategory: aiMatch.mainCategory, subCategory: aiMatch.subCategory, isImported: true }); 
+                    newlyAddedRuleKeywords.add(keywordLower); 
+                  }
+               }
+            } else if (res.entryType === 'Income') { 
+              newIncomesToCommit.push({ id, amount: res.amount || 0, date: res.date, type: res.incomeType as any || 'Other', note: res.note || 'Imported Income', isImported: true, targetAccountId: accountId }); 
+            }
+          });
+
+          if (newExpensesToCommit.length > 0) setExpenses(prev => [...newExpensesToCommit, ...prev]);
+          if (newIncomesToCommit.length > 0) setIncomes(prev => [...newIncomesToCommit, ...prev]);
+          if (newRulesToCommit.length > 0) setRules(prev => [...prev, ...newRulesToCommit]);
+          
+          const totalCount = newExpensesToCommit.length + newIncomesToCommit.length;
+          if (totalCount > 0) showToast(`Successfully synchronized ${totalCount} records.`, 'success'); 
+          else showToast("No new records found to synchronize.", 'info');
+          resolve();
+        } catch (err) { 
+          showToast("Signal ingestion failure. Ensure CSV format is valid.", 'error'); 
+          reject(err);
+        }
+      };
+      reader.readAsText(file);
+    });
   }, [expenses, rules, wealthItems, showToast]);
 
   const finalizeImport = (finalItems: any[]) => {
@@ -463,7 +488,7 @@ const App: React.FC = () => {
         <div className="max-w-2xl mx-auto w-full px-2 min-h-full flex flex-col">
           <div className="flex-1">
             {currentView === 'Dashboard' && <Dashboard expenses={visibleExpenses} incomes={visibleIncomes} wealthItems={visibleWealth} budgetItems={visibleBudgetItems} settings={settings} user={user} onCategorizeClick={() => setIsCategorizing(true)} onConfirmExpense={() => {}} onSmartAdd={() => {}} onNavigate={(v) => setCurrentView(v)} viewDate={viewDate} onMonthChange={(d) => setViewDate(new Date(viewDate.getFullYear(), viewDate.getMonth() + d, 1))} onGoToDate={() => {}} onAffordabilityCheck={() => setIsShowingAskMe(true)} />}
-            {currentView === 'Ledger' && <Ledger expenses={visibleExpenses} incomes={visibleIncomes} wealthItems={visibleWealth} bills={visibleBills} rules={rules} settings={settings} onDeleteExpense={(id) => handleBulkDelete([id], 'expense')} onDeleteIncome={(id) => handleBulkDelete([id], 'income')} onUpdateExpense={handleUpdateExpense} onBulkUpdateExpense={handleBulkUpdateExpense} onBulkDelete={handleBulkDelete} onEditRecord={(r) => setEditingRecord(r)} onAddRecord={() => setIsAddingExpense(true)} onAddIncome={() => setIsAddingIncome(true)} onAddBulk={handleAddBulkToLedger} viewDate={viewDate} onMonthChange={(d) => setViewDate(new Date(viewDate.getFullYear(), viewDate.getMonth() + d, 1))} addNotification={addNotification} showToast={showToast} onDeleteWealth={() => {}} onConfirm={() => {}} onGoToDate={() => {}} />}
+            {currentView === 'Ledger' && <Ledger expenses={visibleExpenses} incomes={visibleIncomes} wealthItems={visibleWealth} bills={visibleBills} rules={rules} settings={settings} onDeleteExpense={(id) => handleBulkDelete([id], 'expense')} onDeleteIncome={(id) => handleBulkDelete([id], 'income')} onUpdateExpense={handleUpdateExpense} onBulkUpdateExpense={handleBulkUpdateExpense} onBulkDelete={handleBulkDelete} onEditRecord={(r) => setEditingRecord(r)} onAddRecord={() => setIsAddingExpense(true)} onAddIncome={() => setIsAddingIncome(true)} onAddBulk={handleAddBulkToLedger} viewDate={viewDate} onMonthChange={(d) => setViewDate(new Date(viewDate.getFullYear(), viewDate.getMonth() + d, 1))} addNotification={addNotification} showToast={showToast} onDeleteWealth={() => {}} onConfirm={() => {}} onGoToDate={() => {}} onImport={handleCSVImport} />}
             {currentView === 'Budget' && <BudgetPlanner budgetItems={visibleBudgetItems} recurringItems={visibleRecurringItems} expenses={visibleExpenses} bills={visibleBills} wealthItems={visibleWealth} settings={settings} onAddBudget={() => setIsAddingBudget(true)} onEditBudget={(b) => setEditingBudget(b)} onUpdateBudget={(id, updates) => setBudgetItems(prev => prev.map(b => b.id === id ? { ...b, ...updates } : b))} onDeleteBudget={(id) => setBudgetItems(prev => prev.filter(b => b.id !== id))} onPayBill={(b) => setSettlingBill(b)} onDeleteBill={(id) => setBills(p => p.filter(b => b.id !== id))} onEditBill={(b) => setEditingRecord(b)} onEditExpense={(e) => setEditingRecord(e)} onAddBillClick={() => setIsAddingBill(true)} onAddRecurringClick={() => setIsAddingExpense(true)} onEditRecurring={(r) => setEditingRecord(r)} viewDate={viewDate} />}
             {currentView === 'Accounts' && <Accounts wealthItems={visibleWealth} expenses={visibleExpenses} incomes={visibleIncomes} bills={visibleBills} settings={settings} onUpdateWealth={(id, updates) => setWealthItems(p => p.map(w => w.id === id ? { ...w, ...updates } : w))} onDeleteWealth={(id) => setWealthItems(p => p.filter(w => w.id !== id))} onAddWealth={() => {}} onEditAccount={(a) => setEditingRecord({...a, mode: 'Account'})} onAddAccountClick={() => setIsAddingAccount(true)} onOpenCategoryManager={() => setIsShowingCategoryManager(true)} onAddTransferClick={() => setIsAddingTransfer(true)} onDeleteExpense={(id) => setExpenses(p => p.filter(e => e.id !== id))} onDeleteIncome={(id) => setIncomes(p => p.filter(i => i.id !== id))} />}
             {currentView === 'Rules' && <RulesEngine rules={rules.filter(r => settings.dataFilter === 'user' ? !r.isMock : settings.dataFilter === 'mock' ? r.isMock : true)} settings={settings} onAddRule={() => setIsAddingRule(true)} onEditRule={(r) => setEditingRule(r)} onDeleteRule={(id) => setRules(p => p.filter(r => r.id !== id))} />}
@@ -473,22 +498,6 @@ const App: React.FC = () => {
           <Footer />
         </div>
       </main>
-
-      {isIngesting && (
-        <div className="fixed inset-0 z-[600] bg-black/40 backdrop-blur-sm flex flex-col items-center justify-center animate-kick">
-           <div className="p-8 bg-brand-surface rounded-[40px] border border-brand-border shadow-2xl flex flex-col items-center gap-6">
-              <div className="relative">
-                 <div className="absolute inset-0 bg-brand-primary/20 blur-2xl rounded-full animate-pulse" />
-                 <BrainCircuit size={64} className="text-brand-primary animate-bounce-slow relative" />
-              </div>
-              <div className="text-center space-y-2">
-                 <h3 className="text-sm font-black uppercase tracking-[0.2em] text-brand-text">Importing expense records..</h3>
-                 <p className="text-[9px] font-bold text-slate-500 uppercase tracking-widest animate-pulse">Synchronizing with registry...</p>
-              </div>
-              <div className="w-48 h-1 bg-brand-accent rounded-full overflow-hidden border border-white/5"><div className="h-full bg-brand-primary animate-mesh" style={{ width: '100%' }} /></div>
-           </div>
-        </div>
-      )}
 
       {toast && <Toast {...toast} theme={settings.appTheme || 'Batman'} onClose={() => setToast(null)} />}
       <Navbar currentView={currentView} remainingPercentage={globalMetrics.remainingPercentage} netWorth={globalMetrics.netWorth} totalAssets={globalMetrics.totalAssets} totalLiabilities={globalMetrics.totalLiabilities} categoryPercentages={globalMetrics.categoryPercentages} onViewChange={handleNavbarViewChange} />

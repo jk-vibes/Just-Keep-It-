@@ -4,7 +4,7 @@ import {
   LogOut, Palette, Download, Upload, Zap, Sparkles,
   ShieldAlert, Shield, Trash2, History, Database, Eraser,
   Maximize2, Minimize2, Layout, TrendingUp,
-  ChevronRight, Tag, Percent
+  ChevronRight, Tag, Percent, Loader2
 } from 'lucide-react';
 import { triggerHaptic } from '../utils/haptics';
 import { getCurrencySymbol } from '../constants';
@@ -21,7 +21,7 @@ interface SettingsProps {
   onUpdateSplit: (split: { Needs: number; Wants: number; Savings: number }) => void;
   onSync: () => void;
   onExport: () => void;
-  onImport: (file: File) => void;
+  onImport: (file: File) => Promise<void>;
   onRestore: (file: File) => void;
   onAddBulk: (items: any[]) => void;
   isSyncing: boolean;
@@ -45,6 +45,7 @@ const Settings: React.FC<SettingsProps> = ({
   const [localNeeds, setLocalNeeds] = useState(settings.split.Needs.toString());
   const [localWants, setLocalWants] = useState(settings.split.Wants.toString());
   const [localSavings, setLocalSavings] = useState(settings.split.Savings.toString());
+  const [isImporting, setIsImporting] = useState(false);
 
   const csvInputRef = useRef<HTMLInputElement>(null);
   const jsonInputRef = useRef<HTMLInputElement>(null);
@@ -68,9 +69,17 @@ const Settings: React.FC<SettingsProps> = ({
     onUpdateSplit(newSplit);
   };
 
-  const handleCSVChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleCSVChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (file) { onImport(file); triggerHaptic(30); }
+    if (file) { 
+      triggerHaptic(30); 
+      setIsImporting(true);
+      try {
+        await onImport(file);
+      } finally {
+        setIsImporting(false);
+      }
+    }
     if (csvInputRef.current) csvInputRef.current.value = '';
   };
 
@@ -83,7 +92,7 @@ const Settings: React.FC<SettingsProps> = ({
   const sectionClass = "bg-brand-surface border border-brand-border rounded-xl mb-2 overflow-hidden shadow-sm";
   const labelClass = "text-[8px] font-black text-slate-500 uppercase tracking-[0.2em] flex items-center gap-2 mb-2 px-2";
   
-  const vaultButtonClass = "flex flex-col items-center justify-center gap-1.5 p-4 rounded-xl bg-brand-accent border border-brand-border active:border-brand-primary active:scale-95 transition-all group shadow-sm";
+  const vaultButtonClass = "flex flex-col items-center justify-center gap-1.5 p-4 rounded-xl bg-brand-accent border border-brand-border active:border-brand-primary active:scale-95 transition-all group shadow-sm disabled:opacity-50";
 
   return (
     <div className="animate-slide-up relative h-full flex flex-col no-scrollbar overflow-hidden">
@@ -229,9 +238,9 @@ const Settings: React.FC<SettingsProps> = ({
                   <Sparkles size={18} className="text-brand-accentUi group-hover:animate-pulse" />
                   <span className="text-[9px] font-black uppercase text-brand-text">Load Demo</span>
                 </button>
-                <button onClick={() => { triggerHaptic(); csvInputRef.current?.click(); }} className={vaultButtonClass}>
-                  <Upload size={18} className="text-slate-400" />
-                  <span className="text-[9px] font-black uppercase text-brand-text">Import CSV</span>
+                <button onClick={() => { triggerHaptic(); csvInputRef.current?.click(); }} disabled={isImporting} className={vaultButtonClass}>
+                  {isImporting ? <Loader2 size={18} className="animate-spin text-brand-primary" /> : <Upload size={18} className="text-slate-400" />}
+                  <span className="text-[9px] font-black uppercase text-brand-text">{isImporting ? 'Ingesting...' : 'Import CSV'}</span>
                 </button>
                 <input type="file" ref={csvInputRef} onChange={handleCSVChange} className="hidden" accept=".csv,.txt,text/csv,text/plain" />
             </div>

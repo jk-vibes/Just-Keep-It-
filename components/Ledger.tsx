@@ -21,14 +21,15 @@ import {
   Play,
   ArrowRight,
   Edit2,
-  ShieldCheck
+  ShieldCheck,
+  Upload,
+  CalendarDays
 } from 'lucide-react';
 import { auditTransaction, refineBatchTransactions } from '../services/geminiService';
-import { parseSmsLocally } from '../utils/smsParser';
 import { triggerHaptic } from '../utils/haptics';
 import { getCategoryIcon } from '../utils/iconUtils';
 import { 
-  ResponsiveContainer, PieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis, Tooltip
+  ResponsiveContainer, PieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis, Tooltip, Legend
 } from 'recharts';
 
 interface LedgerProps {
@@ -55,6 +56,7 @@ interface LedgerProps {
   onGoToDate: (year: number, month: number) => void;
   addNotification: (notif: Omit<Notification, 'timestamp' | 'read'> & { id?: string }) => void;
   showToast: (message: string, type?: 'success' | 'error' | 'info' | 'advice') => void;
+  onImport: (file: File) => Promise<void>;
 }
 
 const SwipeableItem: React.FC<{
@@ -173,7 +175,15 @@ const SwipeableItem: React.FC<{
               <div className={`${isCompact ? 'w-7 h-7 p-1 rounded-lg' : 'w-10 h-10 p-2 rounded-xl'} flex items-center justify-center shrink-0`} style={{ backgroundColor: `${themeColor}15`, color: themeColor }}>{getCategoryIcon(parentCategory, item.mainCategory, item.subCategory, recordType === 'income' ? item.type : undefined, isCompact ? 14 : 18)}</div>
               <div className="min-w-0 flex flex-col pt-0.5">
                 <div className="flex items-center gap-1.5 overflow-hidden">
-                  <div className={`flex items-center gap-1 font-extrabold ${isCompact ? 'text-[11px]' : 'text-[12px]'} truncate leading-tight transition-all rounded-md px-1 -mx-1 ${isCatDiff ? 'ring-1 ring-indigo-400/50 bg-indigo-50/5' : ''} ${isAvoidFlagged ? 'text-rose-500 dark:text-rose-400' : 'text-brand-text'}`}>{recordType === 'income' ? <span>{item.type}</span> : (<><span className="opacity-50">{item.mainCategory || item.category}</span><ChevronRightIcon size={8} className="opacity-30" /><span>{item.subCategory || (item.category === 'Uncategorized' ? 'Pending' : item.category)}</span></>)}</div>
+                  <div className={`flex items-center gap-1 font-extrabold ${isCompact ? 'text-[11px]' : 'text-[12px]'} truncate leading-tight transition-all rounded-md px-1 -mx-1 ${isCatDiff ? 'ring-1 ring-indigo-400/50 bg-indigo-50/5' : ''} ${isAvoidFlagged ? 'text-rose-500 dark:text-rose-400' : 'text-brand-text'}`}>
+                    {recordType === 'income' ? <span>{item.type}</span> : (
+                      <>
+                        <span className="opacity-50">{item.mainCategory || 'General'}</span>
+                        <ChevronRightIcon size={8} className="opacity-30" />
+                        <span>{item.subCategory || (item.category === 'Uncategorized' ? 'Pending' : item.category)}</span>
+                      </>
+                    )}
+                  </div>
                   {item.ruleId && <Zap size={isCompact ? 6 : 8} className="text-emerald-500 fill-emerald-500" />}
                   {isDuplicate && <Copy size={8} className="text-rose-400" />}
                 </div>
@@ -188,8 +198,23 @@ const SwipeableItem: React.FC<{
           </div>
           <div className="flex items-center gap-3 shrink-0 ml-2">
             <div className="text-right flex flex-col items-end">
-              <p className={`font-black ${isCompact ? 'text-[13px]' : 'text-[15px]'} tracking-tight px-1 rounded transition-all ${isDuplicate ? 'ring-1 ring-rose-500/50 bg-rose-500/5 animate-pulse' : ''} ${recordType === 'income' ? 'text-emerald-500' : (recordType === 'transfer' || recordType === 'bill_payment') ? 'text-indigo-500' : (isAvoidFlagged ? 'text-rose-500' : 'text-brand-text')}`}>{recordType === 'income' ? '+' : '-'}{currencySymbol}{Math.round(amount).toLocaleString()}</p>
-              {recordType === 'expense' && (<button onClick={handleItemAudit} className={`mt-1.5 transition-all p-1 rounded-md hover:bg-indigo-500/10 active:scale-90 ${activeAiSuggestion ? 'text-indigo-400 animate-pulse' : 'text-slate-600 opacity-60 hover:opacity-100'}`}>{isAuditing ? <Loader2 size={isCompact ? 10 : 12} className="animate-spin text-indigo-400" /> : <BrainCircuit size={isCompact ? 10 : 12} />}</button>)}
+              <p className={`font-black ${isCompact ? 'text-[13px]' : 'text-[15px]'} tracking-tight px-1 rounded transition-all ${isDuplicate ? 'ring-1 ring-rose-500/50 bg-rose-500/5 animate-pulse' : ''} ${recordType === 'income' ? 'text-emerald-500' : (recordType === 'transfer' || recordType === 'bill_payment') ? 'text-indigo-500' : (isAvoidFlagged ? 'text-rose-500' : 'text-brand-text')}`}>
+                {recordType === 'income' ? '+' : '-'}{currencySymbol}{Math.round(amount).toLocaleString()}
+              </p>
+              
+              {recordType === 'expense' && (
+                <div className="flex items-center gap-1.5 mt-1">
+                   <div 
+                     className="px-1.5 py-0.5 rounded text-[7px] font-black uppercase tracking-widest shadow-inner border border-white/5"
+                     style={{ backgroundColor: `${CATEGORY_COLORS[item.category as Category]}20`, color: CATEGORY_COLORS[item.category as Category] }}
+                   >
+                     {item.category}
+                   </div>
+                   <button onClick={handleItemAudit} className={`transition-all p-1 rounded-md hover:bg-indigo-500/10 active:scale-90 ${activeAiSuggestion ? 'text-indigo-400 animate-pulse' : 'text-slate-600 opacity-60 hover:opacity-100'}`}>
+                     {isAuditing ? <Loader2 size={isCompact ? 10 : 12} className="animate-spin text-indigo-400" /> : <BrainCircuit size={10} />}
+                   </button>
+                </div>
+              )}
             </div>
             {!isCompact && <div className="p-1.5 rounded-lg bg-slate-50 dark:bg-slate-800/50 text-slate-300 dark:text-slate-600 group-hover:text-indigo-500 transition-colors"><Edit2 size={12} /></div>}
           </div>
@@ -213,18 +238,18 @@ const SwipeableItem: React.FC<{
 };
 
 const Ledger: React.FC<LedgerProps> = ({ 
-  expenses, incomes, wealthItems, bills, settings, rules = [], onDeleteExpense, onDeleteIncome, onConfirm, onUpdateExpense, onBulkUpdateExpense, onBulkDelete, onEditRecord, onAddRecord, onAddIncome, onAddBulk, viewDate, onMonthChange, showToast
+  expenses, incomes, wealthItems, bills, settings, rules = [], onDeleteExpense, onDeleteIncome, onConfirm, onUpdateExpense, onBulkUpdateExpense, onBulkDelete, onEditRecord, onAddRecord, onAddIncome, onAddBulk, viewDate, onMonthChange, showToast, onImport
 }) => {
   const [filterType, setFilterType] = useState<'all' | 'expense' | 'income' | 'transfer' | 'bill_payment'>('all');
   const [viewMode, setViewMode] = useState<'list' | 'compare'>('list');
   const [searchQuery, setSearchQuery] = useState('');
   const [isSearchOpen, setSearchOpen] = useState(false);
   const [isRefining, setIsRefining] = useState(false);
+  const [isImporting, setIsImporting] = useState(false);
   const [batchSuggestions, setBatchSuggestions] = useState<Record<string, any>>({});
   const [isShowingAISuggestionsOnly, setIsShowingAISuggestionsOnly] = useState(false);
-  const [showImportModal, setShowImportModal] = useState(false);
-  const [importText, setImportText] = useState('');
-  const [isAnalyzing, setIsAnalyzing] = useState(false);
+  
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const currencySymbol = getCurrencySymbol(settings.currency);
   const monthLabel = `${viewDate.toLocaleDateString(undefined, { month: 'short' }).toUpperCase()} '${viewDate.getFullYear().toString().slice(-2)}`;
   const isCompact = settings.density === 'Compact';
@@ -258,6 +283,31 @@ const Ledger: React.FC<LedgerProps> = ({
     const m = viewDate.getMonth(); const y = viewDate.getFullYear(); const prevDateObj = new Date(y, m - 1, 1); const pm = prevDateObj.getMonth(); const py = prevDateObj.getFullYear();
     const currentMonthExpenses = expenses.filter(e => { const d = new Date(e.date); return d.getMonth() === m && d.getFullYear() === y && e.subCategory !== 'Transfer'; });
     const prevMonthExpenses = expenses.filter(e => { const d = new Date(e.date); return d.getMonth() === pm && d.getFullYear() === py && e.subCategory !== 'Transfer'; });
+    
+    // Weekly Aggregation
+    const weeklyData = [
+      { name: 'W1', Needs: 0, Wants: 0, Savings: 0, Avoids: 0 },
+      { name: 'W2', Needs: 0, Wants: 0, Savings: 0, Avoids: 0 },
+      { name: 'W3', Needs: 0, Wants: 0, Savings: 0, Avoids: 0 },
+      { name: 'W4', Needs: 0, Wants: 0, Savings: 0, Avoids: 0 },
+      { name: 'W5', Needs: 0, Wants: 0, Savings: 0, Avoids: 0 },
+    ];
+
+    currentMonthExpenses.forEach(e => {
+      const day = new Date(e.date).getDate();
+      let weekIdx = 0;
+      if (day <= 7) weekIdx = 0;
+      else if (day <= 14) weekIdx = 1;
+      else if (day <= 21) weekIdx = 2;
+      else if (day <= 28) weekIdx = 3;
+      else weekIdx = 4;
+      
+      const catKey = e.category as keyof typeof weeklyData[0];
+      if (weeklyData[weekIdx][catKey] !== undefined) {
+         (weeklyData[weekIdx][catKey] as number) += e.amount;
+      }
+    });
+
     const catMap: Record<string, number> = { Needs: 0, Wants: 0, Savings: 0, Avoids: 0 };
     currentMonthExpenses.forEach(e => { if (catMap[e.category] !== undefined) catMap[e.category] += e.amount; });
     const pieData = Object.entries(catMap).map(([name, value]) => ({ name, value, color: CATEGORY_COLORS[name as Category] })).filter(d => d.value > 0);
@@ -271,7 +321,7 @@ const Ledger: React.FC<LedgerProps> = ({
     const daysInMonth = new Date(y, m + 1, 0).getDate();
     const today = new Date();
     const daysElapsed = (today.getMonth() === m && today.getFullYear() === y) ? today.getDate() : daysInMonth;
-    return { pieData, comparisonData, totalOutflow, dailyBurn: totalOutflow / (daysElapsed || 1), efficiencyScore };
+    return { pieData, comparisonData, weeklyData, totalOutflow, dailyBurn: totalOutflow / (daysElapsed || 1), efficiencyScore };
   }, [expenses, viewDate]);
 
   const renderPieLabel = (props: any) => {
@@ -333,13 +383,21 @@ const Ledger: React.FC<LedgerProps> = ({
     showToast(`Committed ${commitCount} neural insights to registry and logic engine.`, 'success');
   };
 
-  const handleBatchImport = async (textToProcess: string) => {
-    if (!textToProcess.trim()) return;
-    triggerHaptic(); setIsAnalyzing(true);
-    try {
-      const results = parseSmsLocally(textToProcess);
-      if (results?.length > 0) { onAddBulk(results); setShowImportModal(false); setImportText(''); showToast(`Syncing ${results.length} incoming records.`, 'success'); } else { alert("Registry failed to resolve CSV payload."); }
-    } catch (err) { alert("Processing failure."); } finally { setIsAnalyzing(false); }
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      triggerHaptic();
+      setIsImporting(true);
+      showToast("Ingesting source signal...", "info");
+      try {
+        await onImport(file);
+      } catch (err) {
+        showToast("Signal ingestion failure.", "error");
+      } finally {
+        setIsImporting(false);
+        if (fileInputRef.current) fileInputRef.current.value = '';
+      }
+    }
   };
 
   const pendingBills = useMemo(() => bills.filter(b => !b.isPaid), [bills]);
@@ -352,6 +410,10 @@ const Ledger: React.FC<LedgerProps> = ({
           <p className="text-[7px] font-bold text-brand-headerText/50 uppercase tracking-[0.2em] mt-1">Audit Registry</p>
         </div>
         <div className="flex items-center gap-1.5">
+           <button onClick={() => { triggerHaptic(); fileInputRef.current?.click(); }} disabled={isImporting} className="p-2 bg-white/10 rounded-xl text-brand-headerText hover:bg-white/20 transition-all active:scale-95">
+                {isImporting ? <Loader2 size={16} className="animate-spin" /> : <Upload size={16} strokeWidth={2.5} />}
+           </button>
+           <input type="file" ref={fileInputRef} onChange={handleFileChange} className="hidden" accept=".csv,.txt,text/csv,text/plain" />
            <button onClick={handleApplyRules} title="Run Rule Engine" className="p-2 bg-white/10 rounded-xl text-brand-headerText hover:bg-white/20 transition-all active:scale-95"><Zap size={16} strokeWidth={2.5} /></button>
            <button onClick={handleBatchRefine} disabled={isRefining} className={`p-2 rounded-xl transition-all active:scale-95 ${isShowingAISuggestionsOnly ? 'bg-white/20 text-brand-headerText' : 'bg-white/10 text-brand-headerText'}`}>{isRefining ? <Loader2 size={16} className="animate-spin" /> : <Wand2 size={16} strokeWidth={2.5} />}</button>
            <button onClick={() => { triggerHaptic(); setViewMode(viewMode === 'list' ? 'compare' : 'list'); }} className={`p-2 rounded-xl transition-all active:scale-95 ${viewMode === 'compare' ? 'bg-white/20 text-brand-headerText' : 'bg-white/10 text-brand-headerText'}`}>{viewMode === 'list' ? <BarChart3 size={16} /> : <LayoutList size={16} />}</button>
@@ -376,14 +438,64 @@ const Ledger: React.FC<LedgerProps> = ({
         ) : (
           <div className={`flex flex-col ${isCompact ? 'gap-1.5' : 'gap-3'} pb-10 animate-slide-up`}>
             <div className={`grid grid-cols-2 ${isCompact ? 'gap-1.5' : 'gap-3'}`}><div className={`bg-brand-surface ${isCompact ? 'p-3 rounded-2xl' : 'p-4 rounded-[28px]'} border border-brand-border shadow-sm`}><div className="flex items-center gap-2 mb-2"><TrendingDown size={12} className="text-orange-500" /><span className="text-[8px] font-black text-slate-500 uppercase tracking-widest">Daily Burn</span></div><h3 className={`${isCompact ? 'text-base' : 'text-lg'} font-black text-brand-text tracking-tighter leading-none`}>{currencySymbol}{Math.round(analyticsData.dailyBurn).toLocaleString()}</h3></div><div className={`bg-brand-surface ${isCompact ? 'p-3 rounded-2xl' : 'p-4 rounded-[28px]'} border border-brand-border shadow-sm`}><div className="flex items-center gap-2 mb-2"><Zap size={12} className="text-indigo-400" /><span className="text-[8px] font-black text-slate-500 uppercase tracking-widest">Efficiency</span></div><h3 className={`${isCompact ? 'text-base' : 'text-lg'} font-black text-brand-text tracking-tighter leading-none`}>{Math.round(analyticsData.efficiencyScore)}%</h3></div></div>
+            
+            <section className={`bg-brand-surface ${isCompact ? 'p-3 rounded-2xl' : 'p-5 rounded-[32px]'} border border-brand-border shadow-sm`}>
+              <div className="flex items-center justify-between mb-4">
+                <div className="flex items-center gap-2">
+                  <CalendarDays size={14} className="text-brand-primary" />
+                  <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Weekly Expenditure Pulse</h3>
+                </div>
+              </div>
+              <div className={`${isCompact ? 'h-44' : 'h-52'} w-full`}>
+                 <ResponsiveContainer width="100%" height="100%">
+                   <BarChart data={analyticsData.weeklyData} margin={{ top: 10, right: 0, left: -25, bottom: 0 }}>
+                      <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fontSize: 8, fontWeight: 900, fill: '#64748b' }} dy={5} />
+                      <Tooltip 
+                        cursor={{fill: 'var(--brand-accent)'}}
+                        content={({ active, payload, label }) => {
+                          if (active && payload && payload.length) {
+                            return (
+                              <div className="bg-brand-surface p-3 rounded-2xl border border-brand-border shadow-xl min-w-[120px]">
+                                <p className="text-[9px] font-black text-brand-text uppercase mb-2">Week {label?.replace('W', '')}</p>
+                                <div className="space-y-1.5">
+                                  {payload.map((p: any) => (
+                                    <div key={p.name} className="flex justify-between items-center gap-4">
+                                      <div className="flex items-center gap-1.5">
+                                        <div className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: p.color }} />
+                                        <span className="text-[7px] font-bold text-slate-500 uppercase">{p.name}</span>
+                                      </div>
+                                      <span className="text-[8px] font-black text-brand-text">{currencySymbol}{Math.round(p.value).toLocaleString()}</span>
+                                    </div>
+                                  ))}
+                                </div>
+                              </div>
+                            );
+                          }
+                          return null;
+                        }}
+                      />
+                      <Bar dataKey="Needs" stackId="a" fill={CATEGORY_COLORS.Needs} radius={0} />
+                      <Bar dataKey="Wants" stackId="a" fill={CATEGORY_COLORS.Wants} radius={0} />
+                      <Bar dataKey="Savings" stackId="a" fill={CATEGORY_COLORS.Savings} radius={0} />
+                      <Bar dataKey="Avoids" stackId="a" fill={CATEGORY_COLORS.Avoids} radius={[4, 4, 0, 0]} />
+                   </BarChart>
+                 </ResponsiveContainer>
+              </div>
+              <div className="flex justify-center gap-3 mt-4 flex-wrap">
+                 {(['Needs', 'Wants', 'Savings', 'Avoids'] as const).map(cat => (
+                   <div key={cat} className="flex items-center gap-1">
+                      <div className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: CATEGORY_COLORS[cat] }} />
+                      <span className="text-[6px] font-black text-slate-500 uppercase tracking-widest">{cat}</span>
+                   </div>
+                 ))}
+              </div>
+            </section>
+
             <section className={`bg-brand-surface ${isCompact ? 'p-3 rounded-2xl' : 'p-5 rounded-[32px]'} border border-brand-border shadow-sm`}><div className="flex items-center justify-between mb-4"><div className="flex items-center gap-2"><PieChartIcon size={14} className="text-slate-400" /><h3 className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Allocation</h3></div></div><div className={`${isCompact ? 'h-48' : 'h-56'} w-full`}><ResponsiveContainer width="100%" height="100%"><PieChart><Pie data={analyticsData.pieData} cx="50%" cy="50%" innerRadius={isCompact ? 22 : 30} outerRadius={isCompact ? 38 : 50} paddingAngle={4} dataKey="value" labelLine={true} label={renderPieLabel}>{analyticsData.pieData.map((entry, index) => <Cell key={`cell-${index}`} fill={entry.color} stroke="none" />)}</Pie></PieChart></ResponsiveContainer></div></section>
-            <section className={`bg-brand-surface ${isCompact ? 'p-3 rounded-2xl' : 'p-5 rounded-[32px]'} border border-brand-border shadow-sm`}><div className="flex items-center justify-between mb-5"><div className="flex items-center gap-2"><History size={14} className="text-slate-400" /><h3 className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Monthly Variance</h3></div><div className="flex items-center gap-3"><div className="flex items-center gap-1"><div className="w-1.5 h-1.5 rounded-full bg-slate-500 opacity-20" /><span className="text-[7px] font-black text-slate-500 uppercase">Last</span></div><div className="flex items-center gap-1"><div className="w-1.5 h-1.5 rounded-full bg-brand-accentUi" /><span className="text-[7px] font-black text-slate-500 uppercase">This</span></div></div></div><div className={`${isCompact ? 'h-40' : 'h-52'} w-full`}><ResponsiveContainer width="100%" height="100%"><BarChart data={analyticsData.comparisonData} margin={{ top: 10, right: 0, left: -20, bottom: 20 }} barGap={2}><XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fontSize: 9, fontWeight: 900, fill: '#64748b' }} dy={10} /><Tooltip cursor={{fill: 'var(--brand-accent)'}} content={({ active, payload }) => { if (active && payload && payload.length) { const data = payload[0].payload; return (<div className="bg-brand-surface p-3 rounded-2xl border border-brand-border shadow-xl"><p className="text-[9px] font-black text-brand-text uppercase mb-2">{data.name}</p><div className="space-y-1"><div className="flex justify-between gap-4"><span className="text-[7px] font-bold text-slate-500 uppercase tracking-widest">Last Month</span><span className="text-[8px] font-black text-brand-text">{currencySymbol}{data.previous.toLocaleString()}</span></div><div className="flex justify-between gap-4"><span className="text-[7px] font-bold text-slate-500 uppercase tracking-widest">This Month</span><span className="text-[8px] font-black text-brand-text">{currencySymbol}{data.current.toLocaleString()}</span></div></div></div>); } return null; }} /><Bar dataKey="previous" radius={[4, 4, 0, 0]} fill="var(--brand-text)" opacity={0.1} /><Bar dataKey="current" radius={[4, 4, 0, 0]}>{analyticsData.comparisonData.map((entry, index) => (<Cell key={`cell-cur-${index}`} fill={entry.color} />))}</Bar></BarChart></ResponsiveContainer></div></section>
+            <section className={`bg-brand-surface ${isCompact ? 'p-3 rounded-2xl' : 'p-5 rounded-[32px]'} border border-brand-border shadow-sm`}><div className="flex items-center justify-between mb-5"><div className="flex items-center gap-2"><History size={14} className="text-slate-400" /><h3 className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Monthly Variance</h3></div><div className="flex items-center gap-3"><div className="flex items-center gap-1"><div className="w-1.5 h-1.5 rounded-full bg-slate-500 opacity-20" /><span className="text-[7px] font-black text-slate-500 uppercase">Last</span></div><div className="flex items-center gap-1"><div className="w-1.5 h-1.5 rounded-full bg-brand-accentUi" /><span className="text-[7px] font-black text-slate-500 uppercase">This</span></div></div></div><div className={`${isCompact ? 'h-40' : 'h-52'} w-full`}><ResponsiveContainer width="100%" height="100%"><BarChart data={analyticsData.comparisonData} margin={{ top: 10, right: 0, left: -20, bottom: 20 }} barGap={2}><XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fontSize: 9, fontWeight: 900, fill: '#64748b' }} dy={10} /><Tooltip cursor={{fill: 'transparent'}} content={({ active, payload }) => { if (active && payload && payload.length) { const data = payload[0].payload; return (<div className="bg-brand-surface p-3 rounded-2xl border border-brand-border shadow-xl"><p className="text-[9px] font-black text-brand-text uppercase mb-2">{data.name}</p><div className="space-y-1"><div className="flex justify-between gap-4"><span className="text-[7px] font-bold text-slate-500 uppercase tracking-widest">Last Month</span><span className="text-[8px] font-black text-brand-text">{currencySymbol}{data.previous.toLocaleString()}</span></div><div className="flex justify-between gap-4"><span className="text-[7px] font-bold text-slate-500 uppercase tracking-widest">This Month</span><span className="text-[8px] font-black text-brand-text">{currencySymbol}{data.current.toLocaleString()}</span></div></div></div>); } return null; }} /><Bar dataKey="previous" radius={[4, 4, 0, 0]} fill="var(--brand-text)" opacity={0.1} /><Bar dataKey="current" radius={[4, 4, 0, 0]}>{analyticsData.comparisonData.map((entry, index) => (<Cell key={`cell-cur-${index}`} fill={entry.color} />))}</Bar></BarChart></ResponsiveContainer></div></section>
           </div>
         )}
       </div>
-      {showImportModal && (
-        <div className="fixed inset-0 bg-black/60 z-[100] flex items-end justify-center backdrop-blur-sm p-2"><div className="bg-brand-surface w-full max-w-lg rounded-[32px] border border-brand-border shadow-2xl flex flex-col max-h-[85vh] overflow-hidden"><div className="flex justify-between items-center px-6 py-4 border-b border-brand-border"><h3 className="text-[11px] font-black uppercase tracking-widest text-brand-text">Import records</h3><button onClick={() => setShowImportModal(false)} className="p-2 bg-white/5 rounded-full text-slate-400"><X size={18} /></button></div><div className="p-6 space-y-4"><textarea value={importText} onChange={(e) => setImportText(e.target.value)} placeholder="Paste CSV or banking logs..." className="w-full h-44 bg-brand-accent border border-brand-border p-4 rounded-2xl text-[11px] font-medium text-brand-text resize-none outline-none focus:border-brand-primary/30" /><button onClick={() => handleBatchImport(importText)} disabled={!importText || isAnalyzing} className="w-full bg-brand-primary text-brand-headerText font-black py-4 rounded-2xl shadow-xl flex items-center justify-center gap-3 text-[10px] uppercase tracking-[0.2em] active:scale-95 transition-all border border-brand-border">{isAnalyzing ? <Loader2 size={16} className="animate-spin" /> : 'Execute Ingestion'}</button></div></div></div>
-      )}
     </div>
   );
 };

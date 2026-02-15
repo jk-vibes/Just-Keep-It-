@@ -41,7 +41,7 @@ export function getExpensesHash(expenses: Expense[], settings: UserSettings): st
     .filter(e => e.isConfirmed)
     .sort((a, b) => a.id.localeCompare(b.id))
     .map(e => `${e.id}-${Math.round(e.amount)}`);
-  return `v6-tactical-${settings.currency}-${Math.round(settings.monthlyIncome)}-${confirmed.length}-${confirmed.slice(-5).join('|')}`;
+  return `v7-tactical-${settings.currency}-${Math.round(settings.monthlyIncome)}-${confirmed.length}-${confirmed.slice(-5).join('|')}`;
 }
 
 async function withRetry<T>(fn: () => Promise<T>, retries = 3, delay = 15000): Promise<T> {
@@ -79,17 +79,14 @@ export async function refineBatchTransactions(transactions: Array<{ id: string, 
     - 'merchant': Extract a clean, professional name. Strip IDs, dates, or symbols (e.g., "ZOMATO* 123" -> "Zomato").
     
     TAXONOMY RULES (MANDATORY):
-    1. 'category' (BUCKET): Must be exactly one of [Needs, Wants, Savings, Avoids].
+    1. 'category' (BUCKET): MUST be exactly one of: [Needs, Wants, Savings, Avoids]. Note: Use "Savings" exactly, not "Saves".
     2. 'mainCategory' (PRIMARY CATEGORY): Group by industry (e.g., Housing, Household, Logistics, Lifestyle, Leisure, Personal, Investment, Reserve, Waste, Impulse).
     3. 'subCategory' (SUB NODE): Specific item (e.g., Rent, Groceries, Fuel, Dining, Shopping, SIP, Subscriptions).
     
     STRICT CONSTRAINTS:
     - YOU MUST return a classification for EVERY transaction provided.
+    - DO NOT FAIL to provide 'category' (Bucket). It is the most important field for budget tracking.
     - NEVER use "General", "Other", "Miscellaneous" or "Uncategorized" if you can infer a better category from the merchant name.
-    - Example: Starbucks -> Wants -> Personal -> Coffee. Uber -> Needs -> Logistics -> Transport.
-    
-    Avoidance Check: Mark unnecessary/impulsive spends as 'Avoids'.
-    Duplicate Check: If transactions have same amount/merchant within +/- 1 day, mark newer ones with 'isDuplicateOf' set to the original transaction ID.
     
     Data: ${JSON.stringify(transactions)}
     Return JSON array.
@@ -120,7 +117,18 @@ export async function refineBatchTransactions(transactions: Array<{ id: string, 
         }
       }
     }));
-    return JSON.parse(response.text || '[]');
+    
+    const results = JSON.parse(response.text || '[]');
+    
+    // Sanitize Bucket Names to ensure they match our internal Category type
+    return results.map((res: any) => {
+      let bucket = res.category as Category;
+      if (res.category === 'Saves') bucket = 'Savings';
+      if (!['Needs', 'Wants', 'Savings', 'Avoids', 'Uncategorized'].includes(bucket)) {
+        bucket = 'Uncategorized';
+      }
+      return { ...res, category: bucket };
+    });
   } catch (error) {
     console.error("Refinement failure:", error);
     return [];
@@ -136,7 +144,7 @@ export async function auditTransaction(expense: Expense, currency: string) {
     Current Bucket: ${expense.category}
     
     RULES:
-    1. suggestedCategory: [Needs, Wants, Savings, Avoids].
+    1. suggestedCategory: MUST be [Needs, Wants, Savings, Avoids].
     2. suggestedMainCategory: Industry group (e.g., Housing, Lifestyle).
     3. suggestedSubCategory: Specific item (e.g., Rent, Dining).
     
@@ -167,7 +175,9 @@ export async function auditTransaction(expense: Expense, currency: string) {
         }
       }
     }));
-    return JSON.parse(response.text || '{}');
+    const res = JSON.parse(response.text || '{}');
+    if (res.suggestedCategory === 'Saves') res.suggestedCategory = 'Savings';
+    return res;
   } catch (error) {
     return null;
   }
@@ -207,7 +217,7 @@ export async function parseTransactionText(text: string, currency: string): Prom
   const prompt = `
     Extract from: "${text}".
     Currency: ${currency}.
-    Required: Bucket, Primary Category, Sub Node. Clean merchant. NO "General" descriptors.
+    Required: Bucket (Needs/Wants/Savings/Avoids), Primary Category, Sub Node. Clean merchant. NO "General" descriptors.
     Return JSON.
   `;
 
@@ -236,6 +246,7 @@ export async function parseTransactionText(text: string, currency: string): Prom
     }));
     
     const result = JSON.parse(response.text || '{}');
+    if (result.category === 'Saves') result.category = 'Savings';
     const validCategories: Category[] = ['Needs', 'Wants', 'Savings', 'Avoids', 'Uncategorized'];
     return {
       entryType: (result.entryType === 'Income' ? 'Income' : 'Expense'),
@@ -267,7 +278,7 @@ export async function generateQuickNote(merchant: string, mainCategory: string, 
 }
 
 export async function parseBulkTransactions(text: string, currency: string): Promise<any[]> {
-  const prompt = `Analyze logs, extract transactions. Currency ${currency}. Provide Bucket, Primary Category, Sub Node. Clean merchants. JSON array.`;
+  const prompt = `Analyze logs, extract transactions. Currency ${currency}. Provide Bucket (Needs/Wants/Savings/Avoids), Primary Category, Sub Node. Clean merchants. JSON array.`;
   try {
     const response = await withRetry<GenerateContentResponse>(() => ai.models.generateContent({
       model: 'gemini-3-flash-preview',
@@ -296,7 +307,11 @@ export async function parseBulkTransactions(text: string, currency: string): Pro
         }
       }
     }));
-    return JSON.parse(response.text || '[]');
+    const rawResults = JSON.parse(response.text || '[]');
+    return rawResults.map((r: any) => {
+      if (r.category === 'Saves') r.category = 'Savings';
+      return r;
+    });
   } catch (error) {
     return [];
   }
@@ -305,7 +320,7 @@ export async function parseBulkTransactions(text: string, currency: string): Pro
 export async function batchProcessNewTransactions(
   items: Array<{ merchant: string, amount: number, date: string, note?: string }>
 ): Promise<Array<{ merchant: string, category: Category, mainCategory: string, subCategory: string, intelligentNote: string }>> {
-  const prompt = `Process ${items.length} transactions. Assign Bucket, Primary Category, Sub Node. Clean merchants. NO "General". JSON array.`;
+  const prompt = `Process ${items.length} transactions. Assign Bucket (Needs/Wants/Savings/Avoids), Primary Category, Sub Node. Clean merchants. NO "General". JSON array.`;
   try {
     const response = await withRetry<GenerateContentResponse>(() => ai.models.generateContent({
       model: 'gemini-3-flash-preview',
@@ -328,7 +343,11 @@ export async function batchProcessNewTransactions(
         }
       }
     }));
-    return JSON.parse(response.text || '[]');
+    const rawResults = JSON.parse(response.text || '[]');
+    return rawResults.map((r: any) => {
+      if (r.category === 'Saves') r.category = 'Savings';
+      return r;
+    });
   } catch (error) {
     return [];
   }
