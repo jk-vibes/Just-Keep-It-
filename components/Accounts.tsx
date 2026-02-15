@@ -149,6 +149,26 @@ const UltraCompactRow: React.FC<{
   );
 };
 
+const GridAccountItem: React.FC<{
+  item: WealthItem;
+  unpaidBills: number;
+  currencySymbol: string;
+  onClick: () => void;
+}> = ({ item, unpaidBills, currencySymbol, onClick }) => {
+  const displayValue = item.value + unpaidBills;
+  return (
+    <div 
+      onClick={() => { triggerHaptic(); onClick(); }}
+      className="flex justify-between items-center py-1.5 px-1 hover:bg-brand-accent/30 transition-all cursor-pointer rounded-md"
+    >
+      <span className="text-[9px] font-normal text-brand-text capitalize truncate mr-2 leading-tight">{item.alias || item.name}</span>
+      <span className={`text-[10px] font-semibold tracking-tighter leading-none shrink-0 ${item.type === 'Liability' ? 'text-rose-500' : 'text-brand-text'}`}>
+        {item.type === 'Liability' && displayValue > 0 ? '-' : ''}{currencySymbol}{Math.abs(Math.round(displayValue)).toLocaleString()}
+      </span>
+    </div>
+  );
+};
+
 const CustomLabel = (props: any) => {
   const { x, y, width, value, currencySymbol, position = "top" } = props;
   if (!value) return null;
@@ -169,6 +189,7 @@ const Accounts: React.FC<AccountsProps> = ({
   wealthItems, settings, bills, onEditAccount, onAddTransferClick, onAddAccountClick, onOpenCategoryManager
 }) => {
   const [activeView, setActiveView] = useState<'dashboard' | 'registry'>('dashboard');
+  const [registryLayout, setRegistryLayout] = useState<'list' | 'grid'>('list');
   const currencySymbol = getCurrencySymbol(settings.currency);
   
   const stats = useMemo(() => {
@@ -247,6 +268,12 @@ const Accounts: React.FC<AccountsProps> = ({
     return map;
   }, [bills]);
 
+  const totalCCOutstanding = useMemo(() => {
+    return wealthItems
+      .filter(i => i.type === 'Liability' && i.category === 'Credit Card')
+      .reduce((sum, i) => sum + i.value + (accountBillsInfo[i.id]?.amount || 0), 0);
+  }, [wealthItems, accountBillsInfo]);
+
   return (
     <div className="h-full flex flex-col pb-32 animate-slide-up overflow-hidden">
       <div className="bg-gradient-to-r from-brand-primary to-brand-secondary px-3 py-2 rounded-xl mb-1.5 mx-0.5 shadow-md h-[50px] flex items-center shrink-0 border border-white/5">
@@ -273,6 +300,15 @@ const Accounts: React.FC<AccountsProps> = ({
             >
               {activeView === 'dashboard' ? <PieChartIcon size={16} /> : <BarChart3 size={16} />}
             </button>
+            {activeView === 'registry' && (
+              <button 
+                onClick={() => { triggerHaptic(); setRegistryLayout(registryLayout === 'list' ? 'grid' : 'list'); }} 
+                className="p-2 bg-white/10 rounded-xl text-brand-headerText active:scale-95 transition-all"
+                title={registryLayout === 'list' ? "Grid View" : "List View"}
+              >
+                {registryLayout === 'list' ? <LayoutGrid size={16} /> : <List size={16} />}
+              </button>
+            )}
             <button 
               onClick={() => { triggerHaptic(); onAddAccountClick(); }} 
               className="p-2 bg-white/10 rounded-xl text-brand-headerText active:scale-95 transition-all"
@@ -361,70 +397,140 @@ const Accounts: React.FC<AccountsProps> = ({
              </section>
           </div>
         ) : (
-          <div className="flex flex-col animate-slide-up">
-            <div className="flex-1 flex flex-col overflow-hidden">
-               <div className="px-4 py-2 bg-brand-accent/50 border-b border-brand-border flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                     <ArrowUpRight size={10} className="text-emerald-500" />
-                     <span className="text-[8px] font-black text-slate-500 uppercase tracking-[0.3em]">Assets</span>
-                  </div>
-                  <span className="text-[9px] font-black text-emerald-500">{currencySymbol}{Math.round(stats.totalAssets).toLocaleString()}</span>
-               </div>
-               
-               <div className="divide-y divide-brand-border">
-                  {Object.keys(assetGroups).sort().map(group => (
-                    <div key={group} className="bg-brand-surface">
-                      <div className="px-4 py-1.5 bg-brand-accent/20 flex justify-between items-center border-b border-brand-border">
-                        <span className="text-[7px] font-black text-slate-500 uppercase tracking-widest">{group}</span>
-                        <span className="text-[7px] font-bold text-slate-500">
-                          {currencySymbol}{Math.round(assetGroups[group].reduce((s,i)=>s+i.value,0)).toLocaleString()}
-                        </span>
+          <div className="flex flex-col animate-slide-up h-full overflow-hidden">
+            {registryLayout === 'list' ? (
+              <div className="flex-1 flex flex-col overflow-y-auto no-scrollbar">
+                 <div className="px-4 py-2 bg-brand-accent/50 border-b border-brand-border flex items-center justify-between sticky top-0 z-20 backdrop-blur-md">
+                    <div className="flex items-center gap-2">
+                       <ArrowUpRight size={10} className="text-emerald-500" />
+                       <span className="text-[8px] font-black text-slate-500 uppercase tracking-[0.3em]">Assets</span>
+                    </div>
+                    <span className="text-[9px] font-black text-emerald-500">{currencySymbol}{Math.round(stats.totalAssets).toLocaleString()}</span>
+                 </div>
+                 
+                 <div className="divide-y divide-brand-border">
+                    {Object.keys(assetGroups).sort().map(group => (
+                      <div key={group} className="bg-brand-surface">
+                        <div className="px-4 py-1.5 bg-brand-accent/20 flex justify-between items-center border-b border-brand-border">
+                          <span className="text-[7px] font-black text-slate-500 uppercase tracking-widest">{group}</span>
+                          <span className="text-[7px] font-bold text-slate-500">
+                            {currencySymbol}{Math.round(assetGroups[group].reduce((s,i)=>s+i.value,0)).toLocaleString()}
+                          </span>
+                        </div>
+                        {assetGroups[group].map(item => (
+                          <UltraCompactRow 
+                            key={item.id} 
+                            item={item} 
+                            unpaidBills={accountBillsInfo[item.id]?.amount || 0}
+                            relevantBillDate={accountBillsInfo[item.id]?.earliestDueDate}
+                            currencySymbol={currencySymbol} 
+                            onClick={() => onEditAccount(item)} 
+                          />
+                        ))}
                       </div>
-                      {assetGroups[group].map(item => (
-                        <UltraCompactRow 
-                          key={item.id} 
-                          item={item} 
-                          unpaidBills={accountBillsInfo[item.id]?.amount || 0}
-                          relevantBillDate={accountBillsInfo[item.id]?.earliestDueDate}
-                          currencySymbol={currencySymbol} 
-                          onClick={() => onEditAccount(item)} 
-                        />
+                    ))}
+                 </div>
+
+                 <div className="px-4 py-2 bg-brand-accent/50 border-y border-brand-border flex items-center justify-between mt-4 sticky top-0 z-20 backdrop-blur-md">
+                    <div className="flex items-center gap-2">
+                       <ArrowDownRight size={10} className="text-rose-500" />
+                       <span className="text-[8px] font-black text-slate-500 uppercase tracking-[0.3em]">Liabilities</span>
+                    </div>
+                    <span className="text-[9px] font-black text-rose-500">{currencySymbol}{Math.round(stats.totalLiabilities).toLocaleString()}</span>
+                 </div>
+
+                 <div className="divide-y divide-brand-border">
+                    {Object.keys(liabilityGroups).sort().map(group => (
+                      <div key={group} className="bg-brand-surface">
+                        <div className="px-4 py-1.5 bg-brand-accent/20 flex justify-between items-center border-b border-brand-border">
+                          <span className="text-[7px] font-black text-slate-500 uppercase tracking-widest">{group}</span>
+                          <span className="text-[7px] font-bold text-slate-500">
+                            {currencySymbol}{Math.round(liabilityGroups[group].reduce((s,i)=>s+i.value,0)).toLocaleString()}
+                          </span>
+                        </div>
+                        {liabilityGroups[group].map(item => (
+                          <UltraCompactRow 
+                            key={item.id} 
+                            item={item} 
+                            unpaidBills={accountBillsInfo[item.id]?.amount || 0}
+                            relevantBillDate={accountBillsInfo[item.id]?.earliestDueDate}
+                            currencySymbol={currencySymbol} 
+                            onClick={() => onEditAccount(item)} 
+                          />
+                        ))}
+                      </div>
+                    ))}
+                 </div>
+              </div>
+            ) : (
+              /* SIDE BY SIDE GRID VIEW - OPTIMIZED FOR DENSITY & CLEANLINESS */
+              <div className="flex-1 flex flex-col overflow-hidden">
+                <div className="grid grid-cols-2 flex-1 gap-x-2 px-3 py-2 overflow-y-auto no-scrollbar">
+                  {/* ASSETS COLUMN */}
+                  <div className="flex flex-col">
+                    <div className="flex justify-between items-end border-b border-emerald-500/20 pb-1 mb-2 sticky top-0 bg-brand-bg/90 backdrop-blur-md z-20">
+                      <span className="text-[8px] font-black text-emerald-500 uppercase tracking-widest">Assets</span>
+                      <span className="text-[8px] font-black text-brand-text opacity-80">{currencySymbol}{Math.round(stats.totalAssets).toLocaleString()}</span>
+                    </div>
+                    <div className="space-y-3">
+                      {Object.keys(assetGroups).sort().map(group => (
+                        <div key={group} className="flex flex-col">
+                          <span className="text-[9px] font-black text-black dark:text-brand-text capitalize px-1 block mb-1">{group}</span>
+                          <div className="space-y-0.5">
+                            {assetGroups[group].map(item => (
+                              <GridAccountItem 
+                                key={item.id} 
+                                item={item} 
+                                unpaidBills={accountBillsInfo[item.id]?.amount || 0} 
+                                currencySymbol={currencySymbol} 
+                                onClick={() => onEditAccount(item)} 
+                              />
+                            ))}
+                          </div>
+                        </div>
                       ))}
                     </div>
-                  ))}
-               </div>
-
-               <div className="px-4 py-2 bg-brand-accent/50 border-y border-brand-border flex items-center justify-between mt-4">
-                  <div className="flex items-center gap-2">
-                     <ArrowDownRight size={10} className="text-rose-500" />
-                     <span className="text-[8px] font-black text-slate-500 uppercase tracking-[0.3em]">Liabilities</span>
                   </div>
-                  <span className="text-[9px] font-black text-rose-500">{currencySymbol}{Math.round(stats.totalLiabilities).toLocaleString()}</span>
-               </div>
 
-               <div className="divide-y divide-brand-border">
-                  {Object.keys(liabilityGroups).sort().map(group => (
-                    <div key={group} className="bg-brand-surface">
-                      <div className="px-4 py-1.5 bg-brand-accent/20 flex justify-between items-center border-b border-brand-border">
-                        <span className="text-[7px] font-black text-slate-500 uppercase tracking-widest">{group}</span>
-                        <span className="text-[7px] font-bold text-slate-500">
-                          {currencySymbol}{Math.round(liabilityGroups[group].reduce((s,i)=>s+i.value,0)).toLocaleString()}
-                        </span>
-                      </div>
-                      {liabilityGroups[group].map(item => (
-                        <UltraCompactRow 
-                          key={item.id} 
-                          item={item} 
-                          unpaidBills={accountBillsInfo[item.id]?.amount || 0}
-                          relevantBillDate={accountBillsInfo[item.id]?.earliestDueDate}
-                          currencySymbol={currencySymbol} 
-                          onClick={() => onEditAccount(item)} 
-                        />
+                  {/* LIABILITIES COLUMN */}
+                  <div className="flex flex-col">
+                    <div className="flex justify-between items-end border-b border-rose-500/20 pb-1 mb-2 sticky top-0 bg-brand-bg/90 backdrop-blur-md z-20">
+                      <span className="text-[8px] font-black text-rose-500 uppercase tracking-widest">Debt</span>
+                      <span className="text-[8px] font-black text-brand-text opacity-80">{currencySymbol}{Math.round(stats.totalLiabilities).toLocaleString()}</span>
+                    </div>
+                    <div className="space-y-3">
+                      {Object.keys(liabilityGroups).sort().map(group => (
+                        <div key={group} className="flex flex-col">
+                          <span className="text-[9px] font-black text-black dark:text-brand-text capitalize px-1 block mb-1">{group}</span>
+                          <div className="space-y-0.5">
+                            {liabilityGroups[group].map(item => (
+                              <GridAccountItem 
+                                key={item.id} 
+                                item={item} 
+                                unpaidBills={accountBillsInfo[item.id]?.amount || 0} 
+                                currencySymbol={currencySymbol} 
+                                onClick={() => onEditAccount(item)} 
+                              />
+                            ))}
+                          </div>
+                        </div>
                       ))}
                     </div>
-                  ))}
-               </div>
-            </div>
+                  </div>
+                </div>
+
+                {/* CREDIT CARD OUTSTANDING FOOTER */}
+                <div className="px-4 py-2 border-t border-brand-border bg-brand-accent/10 flex justify-between items-center shrink-0">
+                  <div className="flex items-center gap-2">
+                    <CreditCard size={12} className="text-rose-500" />
+                    <span className="text-[8px] font-black text-slate-500 uppercase tracking-widest">Total CC Outstanding</span>
+                  </div>
+                  <span className="text-[10px] font-black text-rose-500 tracking-tight">
+                    {currencySymbol}{Math.round(totalCCOutstanding).toLocaleString()}
+                  </span>
+                </div>
+              </div>
+            )}
           </div>
         )}
       </div>
@@ -435,7 +541,7 @@ const Accounts: React.FC<AccountsProps> = ({
              <span className="text-[8px] font-black uppercase tracking-widest opacity-60">System Synced</span>
           </div>
           <span className="text-[9px] font-black uppercase tracking-[0.2em]">
-            Total Assets: {currencySymbol}{Math.round(stats.totalAssets).toLocaleString()}
+            Net Worth: {currencySymbol}{Math.round(stats.netWorth).toLocaleString()}
           </span>
       </div>
     </div>
