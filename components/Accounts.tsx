@@ -159,10 +159,10 @@ const GridAccountItem: React.FC<{
   return (
     <div 
       onClick={() => { triggerHaptic(); onClick(); }}
-      className="flex justify-between items-center py-1 px-1 hover:bg-brand-accent/30 transition-all cursor-pointer rounded-md"
+      className="flex justify-between items-center py-1.5 px-1 hover:bg-brand-accent/10 transition-all cursor-pointer rounded-md"
     >
-      <span className="text-[10px] font-normal text-brand-text capitalize truncate mr-2 leading-tight">{item.alias || item.name}</span>
-      <span className={`text-[10px] font-semibold tracking-tighter leading-none shrink-0 ${item.type === 'Liability' ? 'text-rose-500' : 'text-brand-text'}`}>
+      <span className="text-[10px] font-normal text-black dark:text-slate-100 capitalize truncate mr-2 leading-tight">{item.alias || item.name}</span>
+      <span className={`text-[10px] font-semibold tracking-tighter leading-none shrink-0 ${item.type === 'Liability' ? 'text-rose-500' : 'text-black dark:text-slate-100'}`}>
         {item.type === 'Liability' && displayValue > 0 ? '-' : ''}{currencySymbol}{Math.abs(Math.round(displayValue)).toLocaleString()}
       </span>
     </div>
@@ -267,12 +267,12 @@ const Accounts: React.FC<AccountsProps> = ({
       .reduce((sum, i) => sum + i.value + (accountBillsInfo[i.id]?.amount || 0), 0);
   }, [wealthItems, accountBillsInfo]);
 
-  const renderSideBySideGroups = (groups: Record<string, WealthItem[]>, accentColor: string) => {
+  const renderSideBySideGroups = (groups: Record<string, WealthItem[]>) => {
     return Object.keys(groups).sort().map(group => {
       const items = groups[group];
       const groupSubtotal = items.reduce((sum, item) => sum + item.value + (accountBillsInfo[item.id]?.amount || 0), 0);
       
-      // Merge Group and Transaction if only 1 item
+      // Merge Group and Transaction if only 1 item for cleaner layout
       if (items.length === 1) {
         const item = items[0];
         return (
@@ -288,10 +288,10 @@ const Accounts: React.FC<AccountsProps> = ({
 
       // Standard Group with Header
       return (
-        <div key={group} className="flex flex-col mt-3 first:mt-0">
-          <div className="flex justify-between items-center px-1 mb-1 border-b border-slate-200 dark:border-slate-800 pb-0.5">
-            <span className="text-[11px] font-black text-slate-900 dark:text-slate-100 capitalize">{group}</span>
-            <span className="text-[9px] font-bold text-slate-400">{currencySymbol}{Math.round(groupSubtotal).toLocaleString()}</span>
+        <div key={group} className="flex flex-col mt-4 first:mt-0">
+          <div className="flex justify-between items-center px-1 mb-1 border-b border-slate-200 dark:border-slate-800 pb-1">
+            <span className="text-[11px] font-black text-black dark:text-white capitalize">{group}</span>
+            <span className="text-[10px] font-black text-black dark:text-white">{currencySymbol}{Math.round(groupSubtotal).toLocaleString()}</span>
           </div>
           <div className="space-y-0.5">
             {items.map(item => (
@@ -311,7 +311,7 @@ const Accounts: React.FC<AccountsProps> = ({
 
   return (
     <div className="h-full flex flex-col pb-32 animate-slide-up overflow-hidden">
-      <div className="bg-gradient-to-r from-brand-primary to-brand-secondary px-3 py-2 rounded-xl mb-1.5 mx-0.5 shadow-md h-[50px] flex items-center shrink-0 border border-white/5">
+      <div className="bg-gradient-to-r from-brand-primary to-brand-secondary px-3 py-2 rounded-xl mb-1.5 mx-0.5 shadow-md h-[50px] flex items-center justify-between shrink-0 border border-white/5">
         <div className="flex justify-between items-center w-full px-1">
           <div>
             <h1 className="text-[14px] font-black text-brand-headerText uppercase leading-none tracking-tight">
@@ -491,24 +491,24 @@ const Accounts: React.FC<AccountsProps> = ({
               </div>
             ) : (
               <div className="flex-1 flex flex-col overflow-hidden">
-                <div className="grid grid-cols-2 flex-1 gap-x-2 px-3 py-2 overflow-y-auto no-scrollbar">
+                <div className="grid grid-cols-2 flex-1 gap-x-3 px-4 py-3 overflow-y-auto no-scrollbar">
                   <div className="flex flex-col">
-                    <div className="flex justify-between items-end pb-1 mb-2 sticky top-0 bg-brand-bg/90 backdrop-blur-md z-20">
-                      <span className="text-[8px] font-black text-emerald-500 uppercase tracking-widest">Assets</span>
-                      <span className="text-[8px] font-black text-brand-text opacity-80">{currencySymbol}{Math.round(stats.totalAssets).toLocaleString()}</span>
+                    <div className="flex justify-between items-end pb-1.5 mb-2 sticky top-0 bg-brand-bg/95 backdrop-blur-md z-20 border-b border-emerald-500/20">
+                      <span className="text-[8px] font-black text-emerald-500 uppercase tracking-[0.2em]">Assets</span>
+                      <span className="text-[8px] font-black text-black dark:text-white">{currencySymbol}{Math.round(stats.totalAssets).toLocaleString()}</span>
                     </div>
                     <div className="space-y-1">
-                      {renderSideBySideGroups(assetGroups, '#10b981')}
+                      {renderSideBySideGroups(assetGroups)}
                     </div>
                   </div>
 
                   <div className="flex flex-col">
-                    <div className="flex justify-between items-end pb-1 mb-2 sticky top-0 bg-brand-bg/90 backdrop-blur-md z-20">
-                      <span className="text-[8px] font-black text-rose-500 uppercase tracking-widest">Debt</span>
-                      <span className="text-[8px] font-black text-brand-text opacity-80">{currencySymbol}{Math.round(stats.totalLiabilities).toLocaleString()}</span>
+                    <div className="flex justify-between items-end pb-1.5 mb-2 sticky top-0 bg-brand-bg/95 backdrop-blur-md z-20 border-b border-rose-500/20">
+                      <span className="text-[8px] font-black text-rose-500 uppercase tracking-[0.2em]">Debt</span>
+                      <span className="text-[8px] font-black text-black dark:text-white">{currencySymbol}{Math.round(stats.totalLiabilities).toLocaleString()}</span>
                     </div>
                     <div className="space-y-1">
-                      {renderSideBySideGroups(liabilityGroups, '#f43f5e')}
+                      {renderSideBySideGroups(liabilityGroups)}
                     </div>
                   </div>
                 </div>
