@@ -119,7 +119,7 @@ const UltraCompactRow: React.FC<{
           {getCategoryIcon(item.category)}
         </div>
         <div className="flex flex-col min-w-0">
-          <span className="text-[10px] font-black text-brand-text truncate uppercase tracking-tight leading-none mb-1.5">
+          <span className="text-[10px] font-black text-slate-950 dark:text-slate-50 truncate uppercase tracking-tight leading-none mb-1.5">
             {item.alias || item.name}
           </span>
           <div className="flex items-center gap-1.5">
@@ -135,7 +135,7 @@ const UltraCompactRow: React.FC<{
         </div>
       </div>
       <div className="flex flex-col items-end shrink-0">
-        <span className={`text-[11px] font-black tracking-tight leading-none ${item.type === 'Liability' ? 'text-rose-500' : 'text-brand-text'}`}>
+        <span className={`text-[11px] font-black tracking-tight leading-none ${item.type === 'Liability' ? 'text-rose-500' : 'text-slate-950 dark:text-slate-50'}`}>
           {item.type === 'Liability' && displayValue > 0 ? '-' : ''}{currencySymbol}{Math.abs(Math.round(displayValue)).toLocaleString()}
         </span>
         <div className="flex items-center gap-1 mt-1 text-slate-500">
@@ -161,8 +161,8 @@ const GridAccountItem: React.FC<{
       onClick={() => { triggerHaptic(); onClick(); }}
       className="flex justify-between items-center py-1.5 px-1 hover:bg-brand-accent/10 transition-all cursor-pointer rounded-md"
     >
-      <span className="text-[10px] font-normal text-black dark:text-slate-100 capitalize truncate mr-2 leading-tight">{item.alias || item.name}</span>
-      <span className={`text-[10px] font-semibold tracking-tighter leading-none shrink-0 ${item.type === 'Liability' ? 'text-rose-500' : 'text-black dark:text-slate-100'}`}>
+      <span className="text-[10px] font-bold text-slate-950 dark:text-slate-100 capitalize truncate mr-2 leading-tight">{item.alias || item.name}</span>
+      <span className={`text-[10px] font-black tracking-tighter leading-none shrink-0 ${item.type === 'Liability' ? 'text-rose-500' : 'text-slate-950 dark:text-slate-100'}`}>
         {item.type === 'Liability' && displayValue > 0 ? '-' : ''}{currencySymbol}{Math.abs(Math.round(displayValue)).toLocaleString()}
       </span>
     </div>
@@ -290,8 +290,8 @@ const Accounts: React.FC<AccountsProps> = ({
       return (
         <div key={group} className="flex flex-col mt-4 first:mt-0">
           <div className="flex justify-between items-center px-1 mb-1 border-b border-slate-200 dark:border-slate-800 pb-1">
-            <span className="text-[11px] font-black text-black dark:text-white capitalize">{group}</span>
-            <span className="text-[10px] font-black text-black dark:text-white">{currencySymbol}{Math.round(groupSubtotal).toLocaleString()}</span>
+            <span className="text-[11px] font-black text-slate-950 dark:text-white capitalize">{group}</span>
+            <span className="text-[10px] font-black text-slate-950 dark:text-white">{currencySymbol}{Math.round(groupSubtotal).toLocaleString()}</span>
           </div>
           <div className="space-y-0.5">
             {items.map(item => (
@@ -495,7 +495,7 @@ const Accounts: React.FC<AccountsProps> = ({
                   <div className="flex flex-col">
                     <div className="flex justify-between items-end pb-1.5 mb-2 sticky top-0 bg-brand-bg/95 backdrop-blur-md z-20 border-b border-emerald-500/20">
                       <span className="text-[8px] font-black text-emerald-500 uppercase tracking-[0.2em]">Assets</span>
-                      <span className="text-[8px] font-black text-black dark:text-white">{currencySymbol}{Math.round(stats.totalAssets).toLocaleString()}</span>
+                      <span className="text-[8px] font-black text-slate-950 dark:text-slate-50">{currencySymbol}{Math.round(stats.totalAssets).toLocaleString()}</span>
                     </div>
                     <div className="space-y-1">
                       {renderSideBySideGroups(assetGroups)}
@@ -505,7 +505,7 @@ const Accounts: React.FC<AccountsProps> = ({
                   <div className="flex flex-col">
                     <div className="flex justify-between items-end pb-1.5 mb-2 sticky top-0 bg-brand-bg/95 backdrop-blur-md z-20 border-b border-rose-500/20">
                       <span className="text-[8px] font-black text-rose-500 uppercase tracking-[0.2em]">Debt</span>
-                      <span className="text-[8px] font-black text-black dark:text-white">{currencySymbol}{Math.round(stats.totalLiabilities).toLocaleString()}</span>
+                      <span className="text-[8px] font-black text-slate-950 dark:text-slate-50">{currencySymbol}{Math.round(stats.totalLiabilities).toLocaleString()}</span>
                     </div>
                     <div className="space-y-1">
                       {renderSideBySideGroups(liabilityGroups)}
