@@ -144,7 +144,7 @@ const UltraCompactRow: React.FC<{
         </div>
       </div>
       <div className="flex flex-col items-end shrink-0">
-        <span className={`text-[10px] font-medium tracking-widest leading-none ${item.type === 'Liability' ? 'text-rose-500' : 'text-emerald-500'}`}>
+        <span className="text-[10px] font-medium tracking-widest leading-none text-slate-950 dark:text-slate-100">
           {item.type === 'Liability' && displayValue > 0 ? '-' : ''}{currencySymbol}{Math.abs(Math.round(displayValue)).toLocaleString()}
         </span>
         <div className="flex items-center gap-1 mt-1 text-slate-500">
@@ -164,7 +164,8 @@ const GridAccountItem: React.FC<{
   currencySymbol: string;
   onClick: () => void;
   isStandalone?: boolean;
-}> = ({ item, unpaidBills, currencySymbol, onClick, isStandalone }) => {
+  standaloneColor?: string;
+}> = ({ item, unpaidBills, currencySymbol, onClick, isStandalone, standaloneColor }) => {
   const displayValue = item.value + unpaidBills;
   return (
     <div 
@@ -175,23 +176,15 @@ const GridAccountItem: React.FC<{
     >
       <div className="flex justify-between items-center gap-2">
         <div className="flex flex-col min-w-0">
-          <span className={`text-[10px] capitalize truncate tracking-tight leading-none group-hover:text-brand-accentUi transition-colors ${
-            isStandalone ? 'font-bold text-slate-950 dark:text-slate-100' : 'font-medium text-slate-950 dark:text-slate-200'
+          <span className={`text-[10px] font-medium capitalize truncate tracking-tight leading-none group-hover:text-brand-accentUi transition-colors ${
+            isStandalone ? (standaloneColor || 'text-slate-950 dark:text-slate-100') : 'text-slate-950 dark:text-slate-100'
           }`}>
             {item.name}
           </span>
-          {item.accountNumber && (
-            <div className="flex items-center gap-0.5 opacity-30 mt-1">
-              <Hash size={6} />
-              <span className="text-[7px] font-bold text-slate-500">
-                {item.accountNumber.slice(-4).padStart(6, '•')}
-              </span>
-            </div>
-          )}
         </div>
-        <span className={`text-[10px] tracking-widest leading-none shrink-0 ${
-          isStandalone ? 'font-bold' : 'font-medium'
-        } ${item.type === 'Liability' ? 'text-rose-500' : 'text-emerald-500'}`}>
+        <span className={`text-[10px] font-medium tracking-widest leading-none shrink-0 ${
+          isStandalone ? (standaloneColor || 'text-slate-950 dark:text-slate-100') : 'text-slate-950 dark:text-slate-100'
+        }`}>
           {item.type === 'Liability' && displayValue > 0 ? '-' : ''}{currencySymbol}{Math.abs(Math.round(displayValue)).toLocaleString()}
         </span>
       </div>
@@ -295,9 +288,9 @@ const Accounts: React.FC<AccountsProps> = ({
     return Object.keys(groups).sort().map(group => {
       const items = groups[group];
       const isSingle = items.length === 1;
+      const headerColor = type === 'asset' ? 'text-emerald-500' : 'text-rose-500';
       
       if (isSingle) {
-        // If single account, just show the account row styled as a header
         return (
           <div key={group} className="flex flex-col mt-4 first:mt-0">
             <GridAccountItem 
@@ -306,6 +299,7 @@ const Accounts: React.FC<AccountsProps> = ({
               currencySymbol={currencySymbol} 
               onClick={() => onEditAccount(items[0])} 
               isStandalone={true}
+              standaloneColor={headerColor}
             />
           </div>
         );
@@ -313,12 +307,11 @@ const Accounts: React.FC<AccountsProps> = ({
 
       const groupSubtotal = items.reduce((sum, item) => sum + item.value + (accountBillsInfo[item.id]?.amount || 0), 0);
       
-      // Standard Multi-item Group
       return (
         <div key={group} className="flex flex-col mt-4 first:mt-0">
           <div className="flex justify-between items-center px-1 mb-1 border-b border-brand-border pb-1">
-            <span className="text-[10px] font-bold text-slate-950 dark:text-slate-100 uppercase tracking-widest leading-none">{group}</span>
-            <span className={`text-[10px] font-bold tracking-widest leading-none ${type === 'liability' ? 'text-rose-500' : 'text-emerald-500'}`}>{currencySymbol}{Math.round(groupSubtotal).toLocaleString()}</span>
+            <span className={`text-[10px] font-medium uppercase tracking-widest leading-none ${headerColor}`}>{group}</span>
+            <span className={`text-[10px] font-medium tracking-widest leading-none ${headerColor}`}>{currencySymbol}{Math.round(groupSubtotal).toLocaleString()}</span>
           </div>
           <div className="space-y-0.5">
             {items.map(item => (
@@ -457,9 +450,9 @@ const Accounts: React.FC<AccountsProps> = ({
                  <div className="px-4 py-2 bg-brand-accent/50 border-b border-brand-border flex items-center justify-between sticky top-0 z-20 backdrop-blur-md">
                     <div className="flex items-center gap-2">
                        <ArrowUpRight size={10} className="text-emerald-500" />
-                       <span className="text-[10px] font-bold text-slate-500 uppercase tracking-[0.3em]">Assets</span>
+                       <span className="text-[10px] font-medium text-emerald-500 uppercase tracking-[0.3em]">Assets</span>
                     </div>
-                    <span className="text-[10px] font-bold text-emerald-500 tracking-widest">{currencySymbol}{Math.round(stats.totalAssets).toLocaleString()}</span>
+                    <span className="text-[10px] font-medium text-emerald-500 tracking-widest">{currencySymbol}{Math.round(stats.totalAssets).toLocaleString()}</span>
                  </div>
                  
                  <div className="divide-y divide-brand-border">
@@ -468,8 +461,8 @@ const Accounts: React.FC<AccountsProps> = ({
                       return (
                         <div key={group} className="bg-brand-surface">
                           <div className="px-4 py-1.5 bg-brand-accent/20 flex justify-between items-center border-b border-brand-border">
-                            <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">{group}</span>
-                            <span className="text-[10px] font-bold text-emerald-500 tracking-widest">
+                            <span className="text-[10px] font-medium text-emerald-500 uppercase tracking-widest">{group}</span>
+                            <span className="text-[10px] font-medium text-emerald-500 tracking-widest">
                               {currencySymbol}{Math.round(total).toLocaleString()}
                             </span>
                           </div>
@@ -491,9 +484,9 @@ const Accounts: React.FC<AccountsProps> = ({
                  <div className="px-4 py-2 bg-brand-accent/50 border-y border-brand-border flex items-center justify-between mt-4 sticky top-0 z-20 backdrop-blur-md">
                     <div className="flex items-center gap-2">
                        <ArrowDownRight size={10} className="text-rose-500" />
-                       <span className="text-[10px] font-bold text-slate-500 uppercase tracking-[0.3em]">Liabilities</span>
+                       <span className="text-[10px] font-medium text-rose-500 uppercase tracking-[0.3em]">Liabilities</span>
                     </div>
-                    <span className="text-[10px] font-bold text-rose-500 tracking-widest">{currencySymbol}{Math.round(stats.totalLiabilities).toLocaleString()}</span>
+                    <span className="text-[10px] font-medium text-rose-500 tracking-widest">{currencySymbol}{Math.round(stats.totalLiabilities).toLocaleString()}</span>
                  </div>
 
                  <div className="divide-y divide-brand-border">
@@ -502,8 +495,8 @@ const Accounts: React.FC<AccountsProps> = ({
                       return (
                         <div key={group} className="bg-brand-surface">
                           <div className="px-4 py-1.5 bg-brand-accent/20 flex justify-between items-center border-b border-brand-border">
-                            <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">{group}</span>
-                            <span className="text-[10px] font-bold text-rose-500 tracking-widest">
+                            <span className="text-[10px] font-medium text-rose-500 uppercase tracking-widest">{group}</span>
+                            <span className="text-[10px] font-medium text-rose-500 tracking-widest">
                               {currencySymbol}{Math.round(total).toLocaleString()}
                             </span>
                           </div>
@@ -527,8 +520,8 @@ const Accounts: React.FC<AccountsProps> = ({
                 <div className="grid grid-cols-2 flex-1 gap-x-3 px-4 py-3 overflow-y-auto no-scrollbar">
                   <div className="flex flex-col">
                     <div className="flex justify-between items-end pb-1.5 mb-2 sticky top-0 bg-brand-bg/95 backdrop-blur-md z-20 border-b border-emerald-500/20">
-                      <span className="text-[10px] font-bold text-emerald-500 uppercase tracking-[0.2em]">Assets</span>
-                      <span className="text-[10px] font-bold text-slate-950 dark:text-slate-50 tracking-widest">{currencySymbol}{Math.round(stats.totalAssets).toLocaleString()}</span>
+                      <span className="text-[10px] font-medium text-emerald-500 uppercase tracking-[0.2em]">Assets</span>
+                      <span className="text-[10px] font-medium text-slate-950 dark:text-slate-50 tracking-widest">{currencySymbol}{Math.round(stats.totalAssets).toLocaleString()}</span>
                     </div>
                     <div className="space-y-0.5">
                       {renderSideBySideGroups(assetGroups, 'asset')}
@@ -537,8 +530,8 @@ const Accounts: React.FC<AccountsProps> = ({
 
                   <div className="flex flex-col">
                     <div className="flex justify-between items-end pb-1.5 mb-2 sticky top-0 bg-brand-bg/95 backdrop-blur-md z-20 border-b border-rose-500/20">
-                      <span className="text-[10px] font-bold text-rose-500 uppercase tracking-[0.2em]">Debt</span>
-                      <span className="text-[10px] font-bold text-slate-950 dark:text-slate-50 tracking-widest">{currencySymbol}{Math.round(stats.totalLiabilities).toLocaleString()}</span>
+                      <span className="text-[10px] font-medium text-rose-500 uppercase tracking-[0.2em]">Debt</span>
+                      <span className="text-[10px] font-medium text-slate-950 dark:text-slate-50 tracking-widest">{currencySymbol}{Math.round(stats.totalLiabilities).toLocaleString()}</span>
                     </div>
                     <div className="space-y-0.5">
                       {renderSideBySideGroups(liabilityGroups, 'liability')}
