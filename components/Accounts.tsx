@@ -144,7 +144,7 @@ const UltraCompactRow: React.FC<{
         </div>
       </div>
       <div className="flex flex-col items-end shrink-0">
-        <span className={`text-[11px] font-medium tracking-tight leading-none ${item.type === 'Liability' ? 'text-rose-500' : 'text-slate-950 dark:text-slate-50'}`}>
+        <span className={`text-[10px] font-medium tracking-widest leading-none ${item.type === 'Liability' ? 'text-rose-500' : 'text-emerald-500'}`}>
           {item.type === 'Liability' && displayValue > 0 ? '-' : ''}{currencySymbol}{Math.abs(Math.round(displayValue)).toLocaleString()}
         </span>
         <div className="flex items-center gap-1 mt-1 text-slate-500">
@@ -163,16 +163,21 @@ const GridAccountItem: React.FC<{
   unpaidBills: number;
   currencySymbol: string;
   onClick: () => void;
-}> = ({ item, unpaidBills, currencySymbol, onClick }) => {
+  isStandalone?: boolean;
+}> = ({ item, unpaidBills, currencySymbol, onClick, isStandalone }) => {
   const displayValue = item.value + unpaidBills;
   return (
     <div 
       onClick={() => { triggerHaptic(); onClick(); }}
-      className="flex flex-col py-1.5 px-2 hover:bg-brand-accent/20 transition-all cursor-pointer bg-brand-surface group"
+      className={`flex flex-col px-2 hover:bg-brand-accent/20 transition-all cursor-pointer bg-brand-surface group ${
+        isStandalone ? 'py-2 border-b border-brand-border' : 'py-1.5'
+      }`}
     >
       <div className="flex justify-between items-center gap-2">
         <div className="flex flex-col min-w-0">
-          <span className="text-[10px] font-medium text-slate-950 dark:text-slate-50 capitalize truncate tracking-tight leading-none group-hover:text-brand-accentUi transition-colors">
+          <span className={`text-[10px] capitalize truncate tracking-tight leading-none group-hover:text-brand-accentUi transition-colors ${
+            isStandalone ? 'font-bold text-slate-950 dark:text-slate-100' : 'font-medium text-slate-950 dark:text-slate-200'
+          }`}>
             {item.name}
           </span>
           {item.accountNumber && (
@@ -184,7 +189,9 @@ const GridAccountItem: React.FC<{
             </div>
           )}
         </div>
-        <span className={`text-[10px] font-medium tracking-tighter leading-none shrink-0 ${item.type === 'Liability' ? 'text-rose-500' : 'text-slate-950 dark:text-slate-50'}`}>
+        <span className={`text-[10px] tracking-widest leading-none shrink-0 ${
+          isStandalone ? 'font-bold' : 'font-medium'
+        } ${item.type === 'Liability' ? 'text-rose-500' : 'text-emerald-500'}`}>
           {item.type === 'Liability' && displayValue > 0 ? '-' : ''}{currencySymbol}{Math.abs(Math.round(displayValue)).toLocaleString()}
         </span>
       </div>
@@ -284,23 +291,34 @@ const Accounts: React.FC<AccountsProps> = ({
     return groups;
   }, [wealthItems]);
 
-  const totalCCOutstanding = useMemo(() => {
-    return wealthItems
-      .filter(i => i.type === 'Liability' && i.category === 'Credit Card')
-      .reduce((sum, i) => sum + i.value + (accountBillsInfo[i.id]?.amount || 0), 0);
-  }, [wealthItems, accountBillsInfo]);
-
-  const renderSideBySideGroups = (groups: Record<string, WealthItem[]>) => {
+  const renderSideBySideGroups = (groups: Record<string, WealthItem[]>, type: 'asset' | 'liability') => {
     return Object.keys(groups).sort().map(group => {
       const items = groups[group];
+      const isSingle = items.length === 1;
+      
+      if (isSingle) {
+        // If single account, just show the account row styled as a header
+        return (
+          <div key={group} className="flex flex-col mt-4 first:mt-0">
+            <GridAccountItem 
+              item={items[0]} 
+              unpaidBills={accountBillsInfo[items[0].id]?.amount || 0} 
+              currencySymbol={currencySymbol} 
+              onClick={() => onEditAccount(items[0])} 
+              isStandalone={true}
+            />
+          </div>
+        );
+      }
+
       const groupSubtotal = items.reduce((sum, item) => sum + item.value + (accountBillsInfo[item.id]?.amount || 0), 0);
       
-      // Standard Group with Header
+      // Standard Multi-item Group
       return (
         <div key={group} className="flex flex-col mt-4 first:mt-0">
           <div className="flex justify-between items-center px-1 mb-1 border-b border-brand-border pb-1">
-            <span className="text-[10px] font-black text-slate-950 dark:text-slate-100 uppercase tracking-widest leading-none">{group}</span>
-            <span className="text-[9px] font-black text-slate-950 dark:text-slate-400">{currencySymbol}{Math.round(groupSubtotal).toLocaleString()}</span>
+            <span className="text-[10px] font-bold text-slate-950 dark:text-slate-100 uppercase tracking-widest leading-none">{group}</span>
+            <span className={`text-[10px] font-bold tracking-widest leading-none ${type === 'liability' ? 'text-rose-500' : 'text-emerald-500'}`}>{currencySymbol}{Math.round(groupSubtotal).toLocaleString()}</span>
           </div>
           <div className="space-y-0.5">
             {items.map(item => (
@@ -439,63 +457,69 @@ const Accounts: React.FC<AccountsProps> = ({
                  <div className="px-4 py-2 bg-brand-accent/50 border-b border-brand-border flex items-center justify-between sticky top-0 z-20 backdrop-blur-md">
                     <div className="flex items-center gap-2">
                        <ArrowUpRight size={10} className="text-emerald-500" />
-                       <span className="text-[8px] font-black text-slate-500 uppercase tracking-[0.3em]">Assets</span>
+                       <span className="text-[10px] font-bold text-slate-500 uppercase tracking-[0.3em]">Assets</span>
                     </div>
-                    <span className="text-[9px] font-black text-emerald-500">{currencySymbol}{Math.round(stats.totalAssets).toLocaleString()}</span>
+                    <span className="text-[10px] font-bold text-emerald-500 tracking-widest">{currencySymbol}{Math.round(stats.totalAssets).toLocaleString()}</span>
                  </div>
                  
                  <div className="divide-y divide-brand-border">
-                    {Object.keys(assetGroups).sort().map(group => (
-                      <div key={group} className="bg-brand-surface">
-                        <div className="px-4 py-1.5 bg-brand-accent/20 flex justify-between items-center border-b border-brand-border">
-                          <span className="text-[7px] font-black text-slate-500 uppercase tracking-widest">{group}</span>
-                          <span className="text-[7px] font-bold text-slate-500">
-                            {currencySymbol}{Math.round(assetGroups[group].reduce((s,i)=>s+i.value,0)).toLocaleString()}
-                          </span>
+                    {Object.keys(assetGroups).sort().map(group => {
+                      const total = assetGroups[group].reduce((s,i)=>s+i.value,0);
+                      return (
+                        <div key={group} className="bg-brand-surface">
+                          <div className="px-4 py-1.5 bg-brand-accent/20 flex justify-between items-center border-b border-brand-border">
+                            <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">{group}</span>
+                            <span className="text-[10px] font-bold text-emerald-500 tracking-widest">
+                              {currencySymbol}{Math.round(total).toLocaleString()}
+                            </span>
+                          </div>
+                          {assetGroups[group].map(item => (
+                            <UltraCompactRow 
+                              key={item.id} 
+                              item={item} 
+                              unpaidBills={accountBillsInfo[item.id]?.amount || 0}
+                              relevantBillDate={accountBillsInfo[item.id]?.earliestDueDate}
+                              currencySymbol={currencySymbol} 
+                              onClick={() => onEditAccount(item)} 
+                            />
+                          ))}
                         </div>
-                        {assetGroups[group].map(item => (
-                          <UltraCompactRow 
-                            key={item.id} 
-                            item={item} 
-                            unpaidBills={accountBillsInfo[item.id]?.amount || 0}
-                            relevantBillDate={accountBillsInfo[item.id]?.earliestDueDate}
-                            currencySymbol={currencySymbol} 
-                            onClick={() => onEditAccount(item)} 
-                          />
-                        ))}
-                      </div>
-                    ))}
+                      );
+                    })}
                  </div>
 
                  <div className="px-4 py-2 bg-brand-accent/50 border-y border-brand-border flex items-center justify-between mt-4 sticky top-0 z-20 backdrop-blur-md">
                     <div className="flex items-center gap-2">
                        <ArrowDownRight size={10} className="text-rose-500" />
-                       <span className="text-[8px] font-black text-slate-500 uppercase tracking-[0.3em]">Liabilities</span>
+                       <span className="text-[10px] font-bold text-slate-500 uppercase tracking-[0.3em]">Liabilities</span>
                     </div>
-                    <span className="text-[9px] font-black text-rose-500">{currencySymbol}{Math.round(stats.totalLiabilities).toLocaleString()}</span>
+                    <span className="text-[10px] font-bold text-rose-500 tracking-widest">{currencySymbol}{Math.round(stats.totalLiabilities).toLocaleString()}</span>
                  </div>
 
                  <div className="divide-y divide-brand-border">
-                    {Object.keys(liabilityGroups).sort().map(group => (
-                      <div key={group} className="bg-brand-surface">
-                        <div className="px-4 py-1.5 bg-brand-accent/20 flex justify-between items-center border-b border-brand-border">
-                          <span className="text-[7px] font-black text-slate-500 uppercase tracking-widest">{group}</span>
-                          <span className="text-[7px] font-bold text-slate-500">
-                            {currencySymbol}{Math.round(liabilityGroups[group].reduce((s,i)=>s+i.value,0)).toLocaleString()}
-                          </span>
+                    {Object.keys(liabilityGroups).sort().map(group => {
+                      const total = liabilityGroups[group].reduce((s,i)=>s+i.value,0);
+                      return (
+                        <div key={group} className="bg-brand-surface">
+                          <div className="px-4 py-1.5 bg-brand-accent/20 flex justify-between items-center border-b border-brand-border">
+                            <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">{group}</span>
+                            <span className="text-[10px] font-bold text-rose-500 tracking-widest">
+                              {currencySymbol}{Math.round(total).toLocaleString()}
+                            </span>
+                          </div>
+                          {liabilityGroups[group].map(item => (
+                            <UltraCompactRow 
+                              key={item.id} 
+                              item={item} 
+                              unpaidBills={accountBillsInfo[item.id]?.amount || 0}
+                              relevantBillDate={accountBillsInfo[item.id]?.earliestDueDate}
+                              currencySymbol={currencySymbol} 
+                              onClick={() => onEditAccount(item)} 
+                            />
+                          ))}
                         </div>
-                        {liabilityGroups[group].map(item => (
-                          <UltraCompactRow 
-                            key={item.id} 
-                            item={item} 
-                            unpaidBills={accountBillsInfo[item.id]?.amount || 0}
-                            relevantBillDate={accountBillsInfo[item.id]?.earliestDueDate}
-                            currencySymbol={currencySymbol} 
-                            onClick={() => onEditAccount(item)} 
-                          />
-                        ))}
-                      </div>
-                    ))}
+                      );
+                    })}
                  </div>
               </div>
             ) : (
@@ -503,33 +527,23 @@ const Accounts: React.FC<AccountsProps> = ({
                 <div className="grid grid-cols-2 flex-1 gap-x-3 px-4 py-3 overflow-y-auto no-scrollbar">
                   <div className="flex flex-col">
                     <div className="flex justify-between items-end pb-1.5 mb-2 sticky top-0 bg-brand-bg/95 backdrop-blur-md z-20 border-b border-emerald-500/20">
-                      <span className="text-[8px] font-black text-emerald-500 uppercase tracking-[0.2em]">Assets</span>
-                      <span className="text-[8px] font-black text-slate-950 dark:text-slate-50">{currencySymbol}{Math.round(stats.totalAssets).toLocaleString()}</span>
+                      <span className="text-[10px] font-bold text-emerald-500 uppercase tracking-[0.2em]">Assets</span>
+                      <span className="text-[10px] font-bold text-slate-950 dark:text-slate-50 tracking-widest">{currencySymbol}{Math.round(stats.totalAssets).toLocaleString()}</span>
                     </div>
                     <div className="space-y-0.5">
-                      {renderSideBySideGroups(assetGroups)}
+                      {renderSideBySideGroups(assetGroups, 'asset')}
                     </div>
                   </div>
 
                   <div className="flex flex-col">
                     <div className="flex justify-between items-end pb-1.5 mb-2 sticky top-0 bg-brand-bg/95 backdrop-blur-md z-20 border-b border-rose-500/20">
-                      <span className="text-[8px] font-black text-rose-500 uppercase tracking-[0.2em]">Debt</span>
-                      <span className="text-[8px] font-black text-slate-950 dark:text-slate-50">{currencySymbol}{Math.round(stats.totalLiabilities).toLocaleString()}</span>
+                      <span className="text-[10px] font-bold text-rose-500 uppercase tracking-[0.2em]">Debt</span>
+                      <span className="text-[10px] font-bold text-slate-950 dark:text-slate-50 tracking-widest">{currencySymbol}{Math.round(stats.totalLiabilities).toLocaleString()}</span>
                     </div>
                     <div className="space-y-0.5">
-                      {renderSideBySideGroups(liabilityGroups)}
+                      {renderSideBySideGroups(liabilityGroups, 'liability')}
                     </div>
                   </div>
-                </div>
-
-                <div className="px-4 py-2 border-t border-brand-border bg-brand-accent/10 flex justify-between items-center shrink-0">
-                  <div className="flex items-center gap-2">
-                    <CreditCard size={12} className="text-rose-500" />
-                    <span className="text-[8px] font-black text-slate-500 uppercase tracking-widest">Total CC Outstanding</span>
-                  </div>
-                  <span className="text-[10px] font-black text-rose-500 tracking-tight">
-                    {currencySymbol}{Math.round(totalCCOutstanding).toLocaleString()}
-                  </span>
                 </div>
               </div>
             )}
