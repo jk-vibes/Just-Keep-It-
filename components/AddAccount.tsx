@@ -1,7 +1,7 @@
 import React, { useState, useMemo, useRef, useEffect } from 'react';
 import { WealthItem, WealthType, WealthCategory, UserSettings } from '../types';
 import { getCurrencySymbol } from '../constants';
-import { Check, X, ChevronDown, Landmark, Trash2, Search } from 'lucide-react';
+import { Check, X, ChevronDown, Landmark, Trash2, Search, Hash, Plus } from 'lucide-react';
 import { triggerHaptic } from '../utils/haptics';
 
 interface AddAccountProps {
@@ -22,13 +22,18 @@ const Typeahead: React.FC<{
   onChange: (val: string) => void;
   suggestions: string[];
   placeholder?: string;
-}> = ({ label, value, onChange, suggestions, placeholder }) => {
+  canCreate?: boolean;
+}> = ({ label, value, onChange, suggestions, placeholder, canCreate }) => {
   const [isOpen, setIsOpen] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
 
   const filtered = useMemo(() => {
     const q = value.toLowerCase();
     return suggestions.filter(s => s.toLowerCase().includes(q));
+  }, [suggestions, value]);
+
+  const exactMatch = useMemo(() => {
+    return suggestions.some(s => s.toLowerCase() === value.toLowerCase().trim());
   }, [suggestions, value]);
 
   useEffect(() => {
@@ -61,8 +66,16 @@ const Typeahead: React.FC<{
         </div>
       </div>
       
-      {isOpen && filtered.length > 0 && (
+      {isOpen && (filtered.length > 0 || (canCreate && value.trim() && !exactMatch)) && (
         <div className="absolute z-[300] left-0 right-0 mt-1 bg-brand-surface border border-brand-border rounded-xl shadow-2xl overflow-hidden max-h-40 overflow-y-auto no-scrollbar animate-slide-up">
+          {canCreate && value.trim() && !exactMatch && (
+            <button
+              onClick={() => { onChange(value); setIsOpen(false); triggerHaptic(20); }}
+              className="w-full px-3 py-2 text-left text-[10px] font-black transition-colors border-b border-brand-border bg-indigo-500/10 text-indigo-400 flex items-center gap-2"
+            >
+              <Plus size={10} strokeWidth={4} /> Register "{value}"
+            </button>
+          )}
           {filtered.map((s) => (
             <button
               key={s}
@@ -85,6 +98,7 @@ const AddAccount: React.FC<AddAccountProps> = ({ settings, onSave, onUpdate, onD
   const [groupName, setGroupName] = useState(initialData?.group || '');
   const [name, setName] = useState(initialData?.name || '');
   const [alias, setAlias] = useState(initialData?.alias || '');
+  const [accountNumber, setAccountNumber] = useState(initialData?.accountNumber || '');
   const [value, setValue] = useState(initialData ? initialData.value.toString() : '0');
   const [limit, setLimit] = useState(initialData?.limit ? Math.round(initialData.limit).toString() : '0');
 
@@ -105,6 +119,7 @@ const AddAccount: React.FC<AddAccountProps> = ({ settings, onSave, onUpdate, onD
       group: groupName.trim() || categoryText.trim(), 
       name: name.trim(), 
       alias: (alias || name).trim(),
+      accountNumber: accountNumber.trim(),
       value: Math.round(parseFloat(value) || 0),
       date: new Date().toISOString()
     };
@@ -170,12 +185,29 @@ const AddAccount: React.FC<AddAccountProps> = ({ settings, onSave, onUpdate, onD
                 onChange={setCategoryText}
                 suggestions={type === 'Investment' ? ASSET_CATEGORIES : LIABILITY_CATEGORIES}
                 placeholder="e.g. Savings"
+                canCreate={true}
              />
           </div>
 
           <div className="space-y-0.5">
             <span className={labelClass}>Account Name</span>
             <input type="text" value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g. AMEX Platinum" className={selectClasses} />
+          </div>
+
+          <div className="space-y-0.5">
+            <span className={labelClass}>Account Number / ID</span>
+            <div className="relative group">
+              <input 
+                type="text" 
+                value={accountNumber} 
+                onChange={(e) => setAccountNumber(e.target.value)} 
+                placeholder="e.g. 1234 XXXX 5678" 
+                className={selectClasses} 
+              />
+              <div className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 opacity-40 group-focus-within:text-brand-primary transition-colors">
+                <Hash size={12} />
+              </div>
+            </div>
           </div>
 
           {categoryText === 'Credit Card' && (

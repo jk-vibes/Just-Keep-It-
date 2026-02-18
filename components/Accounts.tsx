@@ -12,7 +12,8 @@ import {
   LayoutGrid, List, BarChart as BarChartIcon,
   ArrowUpRight, ArrowDownRight, Layers,
   ReceiptText, Sparkles, Plus, Tag,
-  Clock, RefreshCcw, CalendarClock
+  Clock, RefreshCcw, CalendarClock,
+  Hash
 } from 'lucide-react';
 import { 
   AreaChart, Area, 
@@ -119,12 +120,20 @@ const UltraCompactRow: React.FC<{
           {getCategoryIcon(item.category)}
         </div>
         <div className="flex flex-col min-w-0">
-          <span className="text-[10px] font-black text-slate-950 dark:text-slate-50 truncate uppercase tracking-tight leading-none mb-1.5">
-            {item.alias || item.name}
-          </span>
+          <div className="flex items-center gap-1.5 mb-1.5">
+            <span className="text-[10px] font-medium text-slate-950 dark:text-slate-50 truncate capitalize tracking-tight leading-none">
+              {item.name}
+            </span>
+            {item.accountNumber && (
+              <div className="flex items-center gap-0.5 opacity-40">
+                <Hash size={7} />
+                <span className="text-[7px] font-bold text-slate-500">{item.accountNumber.slice(-4).padStart(item.accountNumber.length, '•')}</span>
+              </div>
+            )}
+          </div>
           <div className="flex items-center gap-1.5">
              <span className="text-[7px] font-bold text-slate-500 uppercase tracking-widest leading-none">
-               {item.category}
+               {item.alias || item.category}
              </span>
              {isCC && item.limit && (
                <span className="text-[6px] font-black text-indigo-400 uppercase tracking-widest bg-indigo-500/10 px-1 rounded">
@@ -135,7 +144,7 @@ const UltraCompactRow: React.FC<{
         </div>
       </div>
       <div className="flex flex-col items-end shrink-0">
-        <span className={`text-[11px] font-black tracking-tight leading-none ${item.type === 'Liability' ? 'text-rose-500' : 'text-slate-950 dark:text-slate-50'}`}>
+        <span className={`text-[11px] font-medium tracking-tight leading-none ${item.type === 'Liability' ? 'text-rose-500' : 'text-slate-950 dark:text-slate-50'}`}>
           {item.type === 'Liability' && displayValue > 0 ? '-' : ''}{currencySymbol}{Math.abs(Math.round(displayValue)).toLocaleString()}
         </span>
         <div className="flex items-center gap-1 mt-1 text-slate-500">
@@ -159,12 +168,26 @@ const GridAccountItem: React.FC<{
   return (
     <div 
       onClick={() => { triggerHaptic(); onClick(); }}
-      className="flex justify-between items-center py-1.5 px-1 hover:bg-brand-accent/10 transition-all cursor-pointer rounded-md"
+      className="flex flex-col py-1.5 px-2 hover:bg-brand-accent/20 transition-all cursor-pointer bg-brand-surface group"
     >
-      <span className="text-[10px] font-bold text-slate-950 dark:text-slate-100 capitalize truncate mr-2 leading-tight">{item.alias || item.name}</span>
-      <span className={`text-[10px] font-black tracking-tighter leading-none shrink-0 ${item.type === 'Liability' ? 'text-rose-500' : 'text-slate-950 dark:text-slate-100'}`}>
-        {item.type === 'Liability' && displayValue > 0 ? '-' : ''}{currencySymbol}{Math.abs(Math.round(displayValue)).toLocaleString()}
-      </span>
+      <div className="flex justify-between items-center gap-2">
+        <div className="flex flex-col min-w-0">
+          <span className="text-[10px] font-medium text-slate-950 dark:text-slate-50 capitalize truncate tracking-tight leading-none group-hover:text-brand-accentUi transition-colors">
+            {item.name}
+          </span>
+          {item.accountNumber && (
+            <div className="flex items-center gap-0.5 opacity-30 mt-1">
+              <Hash size={6} />
+              <span className="text-[7px] font-bold text-slate-500">
+                {item.accountNumber.slice(-4).padStart(6, '•')}
+              </span>
+            </div>
+          )}
+        </div>
+        <span className={`text-[10px] font-medium tracking-tighter leading-none shrink-0 ${item.type === 'Liability' ? 'text-rose-500' : 'text-slate-950 dark:text-slate-50'}`}>
+          {item.type === 'Liability' && displayValue > 0 ? '-' : ''}{currencySymbol}{Math.abs(Math.round(displayValue)).toLocaleString()}
+        </span>
+      </div>
     </div>
   );
 };
@@ -188,8 +211,8 @@ const CustomLabel = (props: any) => {
 const Accounts: React.FC<AccountsProps> = ({
   wealthItems, settings, bills, onEditAccount, onAddTransferClick, onAddAccountClick, onOpenCategoryManager
 }) => {
-  const [activeView, setActiveView] = useState<'dashboard' | 'registry'>('dashboard');
-  const [registryLayout, setRegistryLayout] = useState<'list' | 'grid'>('list');
+  const [activeView, setActiveView] = useState<'dashboard' | 'registry'>('registry');
+  const [registryLayout, setRegistryLayout] = useState<'list' | 'grid'>('grid');
   const currencySymbol = getCurrencySymbol(settings.currency);
   
   const stats = useMemo(() => {
@@ -272,26 +295,12 @@ const Accounts: React.FC<AccountsProps> = ({
       const items = groups[group];
       const groupSubtotal = items.reduce((sum, item) => sum + item.value + (accountBillsInfo[item.id]?.amount || 0), 0);
       
-      // Merge Group and Transaction if only 1 item for cleaner layout
-      if (items.length === 1) {
-        const item = items[0];
-        return (
-          <GridAccountItem 
-            key={item.id} 
-            item={item} 
-            unpaidBills={accountBillsInfo[item.id]?.amount || 0} 
-            currencySymbol={currencySymbol} 
-            onClick={() => onEditAccount(item)} 
-          />
-        );
-      }
-
       // Standard Group with Header
       return (
         <div key={group} className="flex flex-col mt-4 first:mt-0">
-          <div className="flex justify-between items-center px-1 mb-1 border-b border-slate-200 dark:border-slate-800 pb-1">
-            <span className="text-[11px] font-black text-slate-950 dark:text-white capitalize">{group}</span>
-            <span className="text-[10px] font-black text-slate-950 dark:text-white">{currencySymbol}{Math.round(groupSubtotal).toLocaleString()}</span>
+          <div className="flex justify-between items-center px-1 mb-1 border-b border-brand-border pb-1">
+            <span className="text-[10px] font-black text-slate-950 dark:text-slate-100 uppercase tracking-widest leading-none">{group}</span>
+            <span className="text-[9px] font-black text-slate-950 dark:text-slate-400">{currencySymbol}{Math.round(groupSubtotal).toLocaleString()}</span>
           </div>
           <div className="space-y-0.5">
             {items.map(item => (
@@ -497,7 +506,7 @@ const Accounts: React.FC<AccountsProps> = ({
                       <span className="text-[8px] font-black text-emerald-500 uppercase tracking-[0.2em]">Assets</span>
                       <span className="text-[8px] font-black text-slate-950 dark:text-slate-50">{currencySymbol}{Math.round(stats.totalAssets).toLocaleString()}</span>
                     </div>
-                    <div className="space-y-1">
+                    <div className="space-y-0.5">
                       {renderSideBySideGroups(assetGroups)}
                     </div>
                   </div>
@@ -507,7 +516,7 @@ const Accounts: React.FC<AccountsProps> = ({
                       <span className="text-[8px] font-black text-rose-500 uppercase tracking-[0.2em]">Debt</span>
                       <span className="text-[8px] font-black text-slate-950 dark:text-slate-50">{currencySymbol}{Math.round(stats.totalLiabilities).toLocaleString()}</span>
                     </div>
-                    <div className="space-y-1">
+                    <div className="space-y-0.5">
                       {renderSideBySideGroups(liabilityGroups)}
                     </div>
                   </div>

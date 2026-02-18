@@ -77,6 +77,7 @@ export interface WealthItem {
   group?: string; // New field for custom grouping
   name: string; // The raw label used for mapping
   alias?: string; // Friendly display name
+  accountNumber?: string; // Identification number
   value: number;
   limit?: number;
   date: string;
