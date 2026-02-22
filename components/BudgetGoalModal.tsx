@@ -31,6 +31,7 @@ const BudgetGoalModal: React.FC<BudgetGoalModalProps> = ({
     const list: { name: string; bucket: Category; subs: string[] }[] = [];
     if (!settings.customCategories) return list;
     Object.entries(settings.customCategories).forEach(([bucket, cats]) => {
+      if (bucket === 'Avoids') return; // Avoids cannot be planned as milestones
       Object.entries(cats).forEach(([catName, subs]) => {
         list.push({ name: catName, bucket: bucket as Category, subs });
       });

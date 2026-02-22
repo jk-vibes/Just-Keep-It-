@@ -125,7 +125,9 @@ const AuthScreen: React.FC<AuthScreenProps> = ({ onLogin }) => {
           {/* Title & Vision */}
           <div className="text-center w-full space-y-4 px-4 pt-4">
             <div className="space-y-1">
-              <h1 className="text-5xl font-black text-white tracking-tighter lowercase leading-none">just keep it</h1>
+              <h1 className="text-5xl font-black italic tracking-tighter text-white leading-none">
+                Just<span className="text-yellow-500">Keep</span>
+              </h1>
               <p className="text-[10px] font-black text-yellow-500 uppercase tracking-[0.4em] opacity-80">The Wealth Protocol</p>
             </div>
 

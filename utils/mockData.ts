@@ -59,8 +59,9 @@ export const generate12MonthData = () => {
     { id: 'cc4', type: 'Liability', category: 'Credit Card', name: 'Axis Magnus', alias: 'Axis Travel', value: 85000, limit: 1200000, date: new Date().toISOString(), isMock: true },
     { id: 'cc5', type: 'Liability', category: 'Credit Card', name: 'SBI ELITE', alias: 'SBI Shopping', value: 5000, limit: 300000, date: new Date().toISOString(), isMock: true },
     
-    { id: 'l1', type: 'Liability', category: 'Home Loan', name: 'SBI Home Loan', alias: 'Home Loan', value: 3500000, date: new Date().toISOString(), isMock: true },
-    { id: 'l2', type: 'Liability', category: 'Personal Loan', name: 'HDFC Personal', alias: 'Personal Loan', value: 450000, date: new Date().toISOString(), isMock: true },
+    { id: 'l1', type: 'Liability', category: 'Home Loan', name: 'SBI Home Loan', alias: 'Home Loan', value: 3500000, emiAmount: 42500, maturityDate: '2035-12-31', date: new Date().toISOString(), isMock: true },
+    { id: 'l2', type: 'Liability', category: 'Personal Loan', name: 'HDFC Personal', alias: 'Personal Loan', value: 450000, emiAmount: 12500, maturityDate: '2027-06-30', date: new Date().toISOString(), isMock: true },
+    { id: 'l3', type: 'Liability', category: 'Personal Loan', name: 'Car Loan', alias: 'SUV Loan', value: 1200000, emiAmount: 22000, maturityDate: '2029-03-15', date: new Date().toISOString(), isMock: true },
   ];
 
   const budgetItems: BudgetItem[] = [

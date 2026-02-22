@@ -94,11 +94,11 @@ const BrandedLogo: React.FC<BrandedLogoProps> = ({
           />
 
           <text 
-            x="12" y="17.5" 
-            fontSize="4.5" fontWeight="900" 
+            x="12" y="16.5" 
+            fontSize="7" fontWeight="900" 
             textAnchor="middle" 
-            fill={primaryColor} 
-            style={{ fontFamily: '"Plus Jakarta Sans"', transition: 'fill 0.4s ease' }}
+            fill="var(--brand-text)" 
+            style={{ fontFamily: '"Plus Jakarta Sans"', fontStyle: 'italic', letterSpacing: '-0.05em', transition: 'fill 0.4s ease' }}
           >
             JK
           </text>
@@ -111,12 +111,12 @@ const BrandedLogo: React.FC<BrandedLogoProps> = ({
               opacity="0.9"
             />
             <text 
-              x="12" y="17.5" 
-              fontSize="4.5" fontWeight="900" 
+              x="12" y="16.5" 
+              fontSize="7" fontWeight="900" 
               textAnchor="middle" 
               fill="white" 
               mask={`url(#liquid-mask-${maskId})`}
-              style={{ fontFamily: '"Plus Jakarta Sans"', filter: 'drop-shadow(0 1px 2px rgba(0,0,0,0.2))' }}
+              style={{ fontFamily: '"Plus Jakarta Sans"', fontStyle: 'italic', letterSpacing: '-0.05em', filter: 'drop-shadow(0 1px 2px rgba(0,0,0,0.2))' }}
             >
               JK
             </text>

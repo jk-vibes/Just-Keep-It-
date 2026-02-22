@@ -101,6 +101,8 @@ const AddAccount: React.FC<AddAccountProps> = ({ settings, onSave, onUpdate, onD
   const [accountNumber, setAccountNumber] = useState(initialData?.accountNumber || '');
   const [value, setValue] = useState(initialData ? initialData.value.toString() : '0');
   const [limit, setLimit] = useState(initialData?.limit ? Math.round(initialData.limit).toString() : '0');
+  const [emiAmount, setEmiAmount] = useState(initialData?.emiAmount ? Math.round(initialData.emiAmount).toString() : '0');
+  const [maturityDate, setMaturityDate] = useState(initialData?.maturityDate || '');
 
   const currencySymbol = getCurrencySymbol(settings.currency);
 
@@ -124,6 +126,10 @@ const AddAccount: React.FC<AddAccountProps> = ({ settings, onSave, onUpdate, onD
       date: new Date().toISOString()
     };
     if (categoryText === 'Credit Card') payload.limit = Math.round(parseFloat(limit) || 0);
+    if (type === 'Liability') {
+      payload.emiAmount = Math.round(parseFloat(emiAmount) || 0);
+      payload.maturityDate = maturityDate;
+    }
 
     if (isEditing && onUpdate && initialData?.id) onUpdate(initialData.id, payload);
     else onSave(payload);
@@ -214,6 +220,19 @@ const AddAccount: React.FC<AddAccountProps> = ({ settings, onSave, onUpdate, onD
             <div className="space-y-0.5 animate-kick">
               <span className={labelClass}>Credit Limit</span>
               <input type="number" value={limit} onChange={(e) => setLimit(e.target.value)} placeholder="0" className={selectClasses} />
+            </div>
+          )}
+
+          {type === 'Liability' && categoryText !== 'Credit Card' && (
+            <div className="grid grid-cols-2 gap-3 animate-kick">
+              <div className="space-y-0.5">
+                <span className={labelClass}>EMI Amount</span>
+                <input type="number" value={emiAmount} onChange={(e) => setEmiAmount(e.target.value)} placeholder="0" className={selectClasses} />
+              </div>
+              <div className="space-y-0.5">
+                <span className={labelClass}>Maturity Date</span>
+                <input type="date" value={maturityDate} onChange={(e) => setMaturityDate(e.target.value)} className={selectClasses} />
+              </div>
             </div>
           )}
         </div>

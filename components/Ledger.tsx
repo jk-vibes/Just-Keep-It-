@@ -65,6 +65,8 @@ interface LedgerProps {
   addNotification: (notif: Omit<Notification, 'timestamp' | 'read'> & { id?: string }) => void;
   showToast: (message: string, type?: 'success' | 'error' | 'info' | 'advice') => void;
   onImport: (file: File) => Promise<void>;
+  initialFilter?: string | null;
+  budgetItems: BudgetItem[];
 }
 
 const BulkEditModal: React.FC<{
@@ -220,7 +222,8 @@ const SwipeableItem: React.FC<{
     triggerHaptic();
     setIsAuditing(true);
     try {
-      const result = await auditTransaction(item, currencySymbol);
+      const budgetCtx = getBudgetContext();
+      const result = await auditTransaction(item, currencySymbol, budgetCtx);
       if (result) {
         setLocalAiSuggestion({
           category: result.suggestedCategory,
@@ -370,9 +373,10 @@ const SwipeableItem: React.FC<{
 };
 
 const Ledger: React.FC<LedgerProps> = ({ 
-  expenses, incomes, wealthItems, bills, settings, rules = [], onDeleteExpense, onDeleteIncome, onConfirm, onUpdateExpense, onBulkUpdateExpense, onBulkDelete, onEditRecord, onAddRecord, onAddIncome, onAddBulk, viewDate, onMonthChange, showToast, onImport
+  expenses, incomes, wealthItems, bills, settings, rules = [], budgetItems, onDeleteExpense, onDeleteIncome, onConfirm, onUpdateExpense, onBulkUpdateExpense, onBulkDelete, onEditRecord, onAddRecord, onAddIncome, onAddBulk, viewDate, onMonthChange, showToast, onImport, initialFilter
 }) => {
   const [filterType, setFilterType] = useState<'all' | 'expense' | 'income' | 'transfer' | 'bill_payment'>('all');
+  const [categoryFilter, setCategoryFilter] = useState<string | null>(initialFilter || null);
   const [viewMode, setViewMode] = useState<'list' | 'compare'>('list');
   const [searchQuery, setSearchQuery] = useState('');
   const [isSearchOpen, setSearchOpen] = useState(false);
@@ -396,7 +400,8 @@ const Ledger: React.FC<LedgerProps> = ({
     setIsShowingAISuggestionsOnly(false); 
     setSelectedIds([]);
     setIsSelectionMode(false);
-  }, [viewDate]);
+    setCategoryFilter(initialFilter || null);
+  }, [viewDate, initialFilter]);
 
   const baseRecords = useMemo(() => {
     const m = viewDate.getMonth(); const y = viewDate.getFullYear();
@@ -404,10 +409,16 @@ const Ledger: React.FC<LedgerProps> = ({
     const exps = expenses.filter(e => isMatchingMonth(e.date)).map(e => ({ ...e, recordType: 'expense' as const }));
     const incs = incomes.filter(i => (i as any).isMatchingMonth ? (i as any).isMatchingMonth : isMatchingMonth(i.date)).map(i => ({ ...i, recordType: 'income' as const }));
     const all: any[] = [...exps, ...incs];
+    
+    let filtered = all;
+    if (categoryFilter) {
+      filtered = filtered.filter(rec => rec.category === categoryFilter);
+    }
+
     const q = searchQuery.toLowerCase().trim();
-    if (!q) return all;
-    return all.filter(rec => (rec.merchant || '').toLowerCase().includes(q) || (rec.category || '').toLowerCase().includes(q) || (rec.mainCategory || '').toLowerCase().includes(q) || (rec.subCategory || '').toLowerCase().includes(q) || (rec.amount || 0).toString().includes(q));
-  }, [expenses, incomes, viewDate, searchQuery]);
+    if (!q) return filtered;
+    return filtered.filter(rec => (rec.merchant || '').toLowerCase().includes(q) || (rec.category || '').toLowerCase().includes(q) || (rec.mainCategory || '').toLowerCase().includes(q) || (rec.subCategory || '').toLowerCase().includes(q) || (rec.amount || 0).toString().includes(q));
+  }, [expenses, incomes, viewDate, searchQuery, categoryFilter]);
 
   const filteredRecords = useMemo(() => {
     let list: any[] = [...baseRecords];
@@ -492,6 +503,18 @@ const Ledger: React.FC<LedgerProps> = ({
     if (appliedCount > 0) { showToast(`Successfully applied rules to ${appliedCount} records.`, "success"); } else { showToast("No matches found for existing rules.", "info"); }
   };
 
+  const getBudgetContext = () => {
+    const m = viewDate.getMonth(); const y = viewDate.getFullYear();
+    const currentExps = expenses.filter(e => { const d = new Date(e.date); return d.getMonth() === m && d.getFullYear() === y; });
+    
+    return budgetItems.map(item => {
+      const spent = currentExps
+        .filter(e => e.category === item.bucket && e.mainCategory === item.category && (!item.subCategory || item.subCategory === 'General' || e.subCategory === item.subCategory))
+        .reduce((sum, e) => sum + e.amount, 0);
+      return `${item.bucket}/${item.category}${item.subCategory ? `/${item.subCategory}` : ''}: Limit ${item.amount}, Spent ${spent}, Remaining ${Math.max(0, item.amount - spent)}`;
+    }).join(' | ');
+  };
+
   const handleBatchRefine = async () => {
     triggerHaptic();
     const candidates = baseRecords.filter(r => r.recordType === 'expense');
@@ -500,7 +523,8 @@ const Ledger: React.FC<LedgerProps> = ({
     showToast("Initiating Neural Audit for current month...", "info");
     try {
       const payload = candidates.map(c => ({ id: c.id, amount: Math.round(c.amount), merchant: c.merchant || 'General', note: c.note || '', date: c.date }));
-      const suggestions = await refineBatchTransactions(payload);
+      const budgetCtx = getBudgetContext();
+      const suggestions = await refineBatchTransactions(payload, budgetCtx);
       if (suggestions && suggestions.length > 0) {
         const newMap = { ...batchSuggestions };
         suggestions.forEach(s => { newMap[s.id] = { ...s, potentialAvoid: s.isAvoidSuggestion, isDuplicateOf: s.isDuplicateOf }; });
@@ -642,6 +666,15 @@ const Ledger: React.FC<LedgerProps> = ({
                 <button onClick={() => (triggerHaptic(), onMonthChange(-1))} className="p-1 text-slate-500 active:scale-90"><ChevronLeft size={16} strokeWidth={3} /></button>
                 <h2 className="text-[9px] font-black text-slate-400 uppercase tracking-widest min-w-[55px] text-center">{monthLabel}</h2>
                 <button onClick={() => (triggerHaptic(), onMonthChange(1))} className="p-1 text-slate-500 active:scale-90"><ChevronRight size={16} strokeWidth={3} /></button>
+                {categoryFilter && (
+                  <button 
+                    onClick={() => { triggerHaptic(); setCategoryFilter(null); }}
+                    className="ml-2 flex items-center gap-1 px-2 py-1 bg-rose-500/10 text-rose-500 rounded-lg border border-rose-500/20 animate-kick"
+                  >
+                    <span className="text-[7px] font-black uppercase">{categoryFilter}</span>
+                    <X size={10} strokeWidth={3} />
+                  </button>
+                )}
               </>
             )}
           </div>

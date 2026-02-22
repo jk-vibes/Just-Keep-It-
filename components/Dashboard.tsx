@@ -5,7 +5,7 @@ import {
   BarChart, Bar, XAxis,
   PieChart, Pie, Cell, YAxis
 } from 'recharts';
-import { Expense, UserSettings, Category, Income, WealthItem, UserProfile, BudgetItem, View } from '../types';
+import { Expense, UserSettings, Category, Income, WealthItem, UserProfile, BudgetItem, View, Bill } from '../types';
 import { CATEGORY_COLORS, getCurrencySymbol } from '../constants';
 import { 
   TrendingUp, Activity, Landmark, 
@@ -17,7 +17,9 @@ import {
   History,
   TrendingDown,
   UserCircle2,
-  X
+  X,
+  ReceiptText,
+  CalendarDays
 } from 'lucide-react';
 import { triggerHaptic } from '../utils/haptics';
 
@@ -26,20 +28,21 @@ interface DashboardProps {
   incomes: Income[];
   wealthItems: WealthItem[];
   budgetItems: BudgetItem[];
+  bills: Bill[];
   settings: UserSettings;
   user: UserProfile | null;
   onCategorizeClick: () => void;
   onConfirmExpense: (id: string, category: Category) => void;
   onSmartAdd: () => void;
   onAffordabilityCheck: () => void;
-  onNavigate: (view: View) => void;
+  onNavigate: (view: View, filter?: string) => void;
   viewDate: Date;
   onMonthChange: (direction: number) => void;
   onGoToDate: (year: number, month: number) => void;
 }
 
 const Dashboard: React.FC<DashboardProps> = ({ 
-  expenses, incomes, wealthItems, budgetItems, settings, viewDate, onCategorizeClick, onNavigate
+  expenses, incomes, wealthItems, budgetItems, bills, settings, viewDate, onCategorizeClick, onNavigate
 }) => {
   const [trendViewMode, setTrendViewMode] = useState<'area' | 'bar'>('area');
   const currencySymbol = getCurrencySymbol(settings.currency);
@@ -131,6 +134,10 @@ const Dashboard: React.FC<DashboardProps> = ({
     return { trendData: tData, categoryComparisonData: compData };
   }, [expenses, viewDate]);
 
+  const totalBillsAmount = useMemo(() => {
+    return bills.filter(b => !b.isPaid).reduce((sum, b) => sum + b.amount, 0);
+  }, [bills]);
+
   return (
     <div className={`pb-32 pt-0 animate-slide-up flex flex-col ${isCompact ? 'gap-1.5' : 'gap-3'}`}>
       <div className="bg-gradient-to-r from-brand-primary to-brand-secondary px-3 py-2 rounded-xl mb-1 mx-0.5 shadow-md h-[50px] flex items-center shrink-0 border border-white/5">
@@ -167,19 +174,33 @@ const Dashboard: React.FC<DashboardProps> = ({
           </button>
         </section>
 
-        <div className={`grid grid-cols-2 ${isCompact ? 'gap-1.5' : 'gap-3'}`}>
+        <div className={`grid grid-cols-3 ${isCompact ? 'gap-1.5' : 'gap-3'}`}>
            <button 
-             onClick={() => { triggerHaptic(); onNavigate('Ledger'); }}
+            onClick={() => { triggerHaptic(); onNavigate('Ledger', 'Avoids'); }}
+            className={`bg-brand-surface ${isCompact ? 'p-2.5 rounded-2xl' : 'p-4 rounded-[24px]'} border border-brand-border shadow-sm text-left active:scale-95 transition-transform`}
+          >
+              <div className="flex items-center gap-1.5 mb-1.5">
+                 <AlertTriangle size={12} className="text-amber-500" />
+                 <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest">Wasted</p>
+              </div>
+              <h3 className={`${isCompact ? 'text-xs' : 'text-sm'} font-black text-brand-text tracking-tighter leading-none`}>
+                {currencySymbol}{Math.round(stats.avoidsTotal).toLocaleString()}
+              </h3>
+              <p className="text-[6px] font-bold text-slate-400 uppercase mt-1">Avoided</p>
+           </button>
+
+           <button 
+             onClick={() => { triggerHaptic(); onNavigate('Budget', 'Bills'); }}
              className={`bg-brand-surface ${isCompact ? 'p-2.5 rounded-2xl' : 'p-4 rounded-[24px]'} border border-brand-border shadow-sm text-left active:scale-95 transition-transform`}
            >
               <div className="flex items-center gap-1.5 mb-1.5">
-                 <AlertTriangle size={12} className="text-amber-500" />
-                 <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest">Wasted Cash</p>
+                 <ReceiptText size={12} className="text-rose-500" />
+                 <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest">Bills</p>
               </div>
-              <h3 className={`${isCompact ? 'text-sm' : 'text-base'} font-black text-brand-text tracking-tighter leading-none`}>
-                {currencySymbol}{Math.round(stats.avoidsTotal).toLocaleString()}
+              <h3 className={`${isCompact ? 'text-xs' : 'text-sm'} font-black text-brand-text tracking-tighter leading-none`}>
+                {currencySymbol}{Math.round(totalBillsAmount).toLocaleString()}
               </h3>
-              <p className="text-[6px] font-bold text-slate-400 uppercase mt-1">Total Avoided</p>
+              <p className="text-[6px] font-bold text-slate-400 uppercase mt-1">Pending</p>
            </button>
 
            <button 
@@ -188,12 +209,12 @@ const Dashboard: React.FC<DashboardProps> = ({
            >
               <div className="flex items-center gap-1.5 mb-1.5">
                  <Percent size={12} className="text-brand-primary" />
-                 <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest">Savings %</p>
+                 <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest">Saved %</p>
               </div>
-              <h3 className={`${isCompact ? 'text-sm' : 'text-base'} font-black text-brand-text tracking-tighter leading-none`}>
+              <h3 className={`${isCompact ? 'text-xs' : 'text-sm'} font-black text-brand-text tracking-tighter leading-none`}>
                 {Math.round(stats.efficiencyRate)}%
               </h3>
-              <p className="text-[6px] font-bold text-slate-400 uppercase mt-1">Utility Score</p>
+              <p className="text-[6px] font-bold text-slate-400 uppercase mt-1">Score</p>
            </button>
         </div>
 
@@ -402,6 +423,8 @@ const Dashboard: React.FC<DashboardProps> = ({
               )}
            </div>
         </section>
+
+
 
         {pendingCount > 0 && (
           <button 

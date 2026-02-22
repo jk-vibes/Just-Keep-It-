@@ -140,6 +140,11 @@ const UltraCompactRow: React.FC<{
                  Avail: {currencySymbol}{Math.round(availableLimit).toLocaleString()}
                </span>
              )}
+             {item.type === 'Liability' && item.emiAmount && item.emiAmount > 0 && (
+               <span className="text-[6px] font-black text-rose-400 uppercase tracking-widest bg-rose-500/10 px-1 rounded">
+                 EMI: {currencySymbol}{Math.round(item.emiAmount).toLocaleString()}
+               </span>
+             )}
           </div>
         </div>
       </div>
@@ -164,9 +169,10 @@ const GridAccountItem: React.FC<{
   currencySymbol: string;
   onClick: () => void;
   isStandalone?: boolean;
-  standaloneColor?: string;
-}> = ({ item, unpaidBills, currencySymbol, onClick, isStandalone, standaloneColor }) => {
+}> = ({ item, unpaidBills, currencySymbol, onClick, isStandalone }) => {
   const displayValue = item.value + unpaidBills;
+  const valueColor = item.type === 'Liability' ? 'text-rose-500' : 'text-emerald-500';
+  
   return (
     <div 
       onClick={() => { triggerHaptic(); onClick(); }}
@@ -176,17 +182,58 @@ const GridAccountItem: React.FC<{
     >
       <div className="flex justify-between items-center gap-2">
         <div className="flex flex-col min-w-0">
-          <span className={`text-[10px] font-medium capitalize truncate tracking-tight leading-none group-hover:text-brand-accentUi transition-colors ${
-            isStandalone ? (standaloneColor || 'text-slate-950 dark:text-slate-100') : 'text-slate-950 dark:text-slate-100'
-          }`}>
+          <span className="text-[10px] font-medium capitalize truncate tracking-tight leading-none group-hover:text-brand-accentUi transition-colors text-slate-950 dark:text-slate-100">
             {item.name}
           </span>
+          {item.type === 'Liability' && item.emiAmount && item.emiAmount > 0 && (
+            <span className="text-[7px] font-bold text-rose-500/70 uppercase tracking-widest mt-1">
+              EMI: {currencySymbol}{Math.round(item.emiAmount).toLocaleString()}
+            </span>
+          )}
         </div>
-        <span className={`text-[10px] font-medium tracking-widest leading-none shrink-0 ${
-          isStandalone ? (standaloneColor || 'text-slate-950 dark:text-slate-100') : 'text-slate-950 dark:text-slate-100'
-        }`}>
+        <span className={`text-[10px] font-medium tracking-widest leading-none shrink-0 ${valueColor}`}>
           {item.type === 'Liability' && displayValue > 0 ? '-' : ''}{currencySymbol}{Math.abs(Math.round(displayValue)).toLocaleString()}
         </span>
+      </div>
+    </div>
+  );
+};
+
+const CategoryCard: React.FC<{
+  category: string;
+  items: WealthItem[];
+  type: 'asset' | 'liability';
+  currencySymbol: string;
+  onEdit: (item: WealthItem) => void;
+  accountBills: Record<string, { amount: number }>;
+}> = ({ category, items, type, currencySymbol, onEdit, accountBills }) => {
+  const total = items.reduce((sum, item) => sum + item.value + (accountBills[item.id]?.amount || 0), 0);
+  const color = type === 'asset' ? 'text-emerald-500' : 'text-rose-500';
+  const bgColor = type === 'asset' ? 'bg-emerald-500/5' : 'bg-rose-500/5';
+  const borderColor = type === 'asset' ? 'border-emerald-500/10' : 'border-rose-500/10';
+
+  return (
+    <div className={`p-3 rounded-2xl border ${borderColor} ${bgColor} flex flex-col gap-2 shadow-sm`}>
+      <div className="flex justify-between items-center border-b border-brand-border pb-1.5 mb-0.5">
+        <span className="text-[8px] font-black uppercase tracking-widest text-slate-500 truncate max-w-[60%]">{category}</span>
+        <span className={`text-[10px] font-black ${color}`}>{currencySymbol}{Math.round(total).toLocaleString()}</span>
+      </div>
+      <div className="space-y-1.5">
+        {items.map(item => (
+          <div 
+            key={item.id} 
+            onClick={() => { triggerHaptic(); onEdit(item); }}
+            className="flex justify-between items-center group cursor-pointer"
+          >
+            <div className="flex flex-col min-w-0">
+              <span className="text-[9px] font-medium text-brand-text truncate group-hover:text-brand-primary transition-colors">{item.name}</span>
+              {item.emiAmount && item.emiAmount > 0 && (
+                <span className="text-[6px] font-bold text-rose-500/60 uppercase tracking-tighter">EMI: {currencySymbol}{Math.round(item.emiAmount).toLocaleString()}</span>
+              )}
+            </div>
+            <span className="text-[9px] font-bold text-slate-500 shrink-0 ml-2">{currencySymbol}{Math.round(item.value + (accountBills[item.id]?.amount || 0)).toLocaleString()}</span>
+          </div>
+        ))}
       </div>
     </div>
   );
@@ -212,7 +259,7 @@ const Accounts: React.FC<AccountsProps> = ({
   wealthItems, settings, bills, onEditAccount, onAddTransferClick, onAddAccountClick, onOpenCategoryManager
 }) => {
   const [activeView, setActiveView] = useState<'dashboard' | 'registry'>('registry');
-  const [registryLayout, setRegistryLayout] = useState<'list' | 'grid'>('grid');
+  const [registryLayout, setRegistryLayout] = useState<'list' | 'grid' | 'bento'>('grid');
   const currencySymbol = getCurrencySymbol(settings.currency);
   
   const stats = useMemo(() => {
@@ -224,6 +271,10 @@ const Accounts: React.FC<AccountsProps> = ({
     const totalLiabilities = Math.round(accountLiabilities + totalUnpaidBills);
     const netWorth = Math.round(assets - totalLiabilities);
     
+    const totalEmi = wealthItems
+      .filter(i => i.type === 'Liability' && i.emiAmount)
+      .reduce((sum, i) => sum + (i.emiAmount || 0), 0);
+
     const solvencyRatio = assets > 0 ? ((assets - totalLiabilities) / assets) * 100 : 0;
     const liquidityRatio = assets > 0 ? (liquid / assets) * 100 : 0;
 
@@ -243,6 +294,7 @@ const Accounts: React.FC<AccountsProps> = ({
       liquid: Math.round(liquid),
       solvencyRatio,
       liquidityRatio,
+      totalEmi: Math.round(totalEmi),
       assetChartData: Object.entries(assetDist).map(([name, value]) => ({ name, value: Math.round(value as number) })).sort((a, b) => b.value - a.value),
       liabilityChartData: Object.entries(liabilityDist).map(([name, value]) => ({ name, value: Math.round(value as number) })).sort((a, b) => b.value - a.value)
     };
@@ -288,7 +340,7 @@ const Accounts: React.FC<AccountsProps> = ({
     return Object.keys(groups).sort().map(group => {
       const items = groups[group];
       const isSingle = items.length === 1;
-      const headerColor = type === 'asset' ? 'text-emerald-500' : 'text-rose-500';
+      const valueColor = type === 'asset' ? 'text-emerald-500' : 'text-rose-500';
       
       if (isSingle) {
         return (
@@ -299,7 +351,6 @@ const Accounts: React.FC<AccountsProps> = ({
               currencySymbol={currencySymbol} 
               onClick={() => onEditAccount(items[0])} 
               isStandalone={true}
-              standaloneColor={headerColor}
             />
           </div>
         );
@@ -310,8 +361,8 @@ const Accounts: React.FC<AccountsProps> = ({
       return (
         <div key={group} className="flex flex-col mt-4 first:mt-0">
           <div className="flex justify-between items-center px-1 mb-1 border-b border-brand-border pb-1">
-            <span className={`text-[10px] font-medium uppercase tracking-widest leading-none ${headerColor}`}>{group}</span>
-            <span className={`text-[10px] font-medium tracking-widest leading-none ${headerColor}`}>{currencySymbol}{Math.round(groupSubtotal).toLocaleString()}</span>
+            <span className="text-[10px] font-medium uppercase tracking-widest leading-none text-slate-500">{group}</span>
+            <span className={`text-[10px] font-medium tracking-widest leading-none ${valueColor}`}>{currencySymbol}{Math.round(groupSubtotal).toLocaleString()}</span>
           </div>
           <div className="space-y-0.5">
             {items.map(item => (
@@ -356,10 +407,13 @@ const Accounts: React.FC<AccountsProps> = ({
             </button>
             {activeView === 'registry' && (
               <button 
-                onClick={() => { triggerHaptic(); setRegistryLayout(registryLayout === 'list' ? 'grid' : 'list'); }} 
+                onClick={() => { 
+                  triggerHaptic(); 
+                  setRegistryLayout(prev => prev === 'list' ? 'grid' : prev === 'grid' ? 'bento' : 'list'); 
+                }} 
                 className="p-2 bg-white/10 rounded-xl text-brand-headerText active:scale-95 transition-all"
               >
-                {registryLayout === 'list' ? <LayoutGrid size={16} /> : <List size={16} />}
+                {registryLayout === 'list' ? <LayoutGrid size={16} /> : registryLayout === 'grid' ? <Layers size={16} /> : <List size={16} />}
               </button>
             )}
             <button 
@@ -380,6 +434,10 @@ const Accounts: React.FC<AccountsProps> = ({
           </h2>
         </div>
         <div className="flex gap-3">
+           <div className="flex flex-col items-end">
+              <span className="text-[7px] font-black text-slate-500 uppercase tracking-widest leading-none mb-1">Total EMI</span>
+              <span className="text-[12px] font-black text-rose-500">{currencySymbol}{stats.totalEmi.toLocaleString()}</span>
+           </div>
            <div className="flex flex-col items-end">
               <span className="text-[7px] font-black text-slate-500 uppercase tracking-widest leading-none mb-1">Equity score</span>
               <span className={`text-[12px] font-black ${stats.solvencyRatio > 50 ? 'text-emerald-500' : 'text-rose-500'}`}>{Math.round(stats.solvencyRatio)}%</span>
@@ -515,13 +573,54 @@ const Accounts: React.FC<AccountsProps> = ({
                     })}
                  </div>
               </div>
+            ) : registryLayout === 'bento' ? (
+              <div className="flex-1 flex flex-col overflow-y-auto no-scrollbar p-4 space-y-6">
+                <div>
+                  <div className="flex items-center gap-2 mb-3">
+                    <ArrowUpRight size={12} className="text-emerald-500" />
+                    <span className="text-[10px] font-black text-emerald-500 uppercase tracking-[0.3em]">Capital Assets</span>
+                  </div>
+                  <div className="grid grid-cols-2 gap-3">
+                    {Object.entries(assetGroups).sort().map(([group, items]) => (
+                      <CategoryCard 
+                        key={group} 
+                        category={group} 
+                        items={items} 
+                        type="asset" 
+                        currencySymbol={currencySymbol} 
+                        onEdit={onEditAccount} 
+                        accountBills={accountBillsInfo} 
+                      />
+                    ))}
+                  </div>
+                </div>
+                <div>
+                  <div className="flex items-center gap-2 mb-3">
+                    <ArrowDownRight size={12} className="text-rose-500" />
+                    <span className="text-[10px] font-black text-rose-500 uppercase tracking-[0.3em]">Debt Obligations</span>
+                  </div>
+                  <div className="grid grid-cols-2 gap-3">
+                    {Object.entries(liabilityGroups).sort().map(([group, items]) => (
+                      <CategoryCard 
+                        key={group} 
+                        category={group} 
+                        items={items} 
+                        type="liability" 
+                        currencySymbol={currencySymbol} 
+                        onEdit={onEditAccount} 
+                        accountBills={accountBillsInfo} 
+                      />
+                    ))}
+                  </div>
+                </div>
+              </div>
             ) : (
               <div className="flex-1 flex flex-col overflow-hidden">
                 <div className="grid grid-cols-2 flex-1 gap-x-3 px-4 py-3 overflow-y-auto no-scrollbar">
                   <div className="flex flex-col">
-                    <div className="flex justify-between items-end pb-1.5 mb-2 sticky top-0 bg-brand-bg/95 backdrop-blur-md z-20 border-b border-emerald-500/20">
-                      <span className="text-[10px] font-medium text-emerald-500 uppercase tracking-[0.2em]">Assets</span>
-                      <span className="text-[10px] font-medium text-slate-950 dark:text-slate-50 tracking-widest">{currencySymbol}{Math.round(stats.totalAssets).toLocaleString()}</span>
+                    <div className="flex justify-between items-end pb-1.5 mb-2 sticky top-0 bg-brand-bg/95 backdrop-blur-md z-20 border-b border-brand-border">
+                      <span className="text-[10px] font-medium text-slate-500 uppercase tracking-[0.2em]">Assets</span>
+                      <span className="text-[10px] font-medium text-emerald-500 tracking-widest">{currencySymbol}{Math.round(stats.totalAssets).toLocaleString()}</span>
                     </div>
                     <div className="space-y-0.5">
                       {renderSideBySideGroups(assetGroups, 'asset')}
@@ -529,9 +628,9 @@ const Accounts: React.FC<AccountsProps> = ({
                   </div>
 
                   <div className="flex flex-col">
-                    <div className="flex justify-between items-end pb-1.5 mb-2 sticky top-0 bg-brand-bg/95 backdrop-blur-md z-20 border-b border-rose-500/20">
-                      <span className="text-[10px] font-medium text-rose-500 uppercase tracking-[0.2em]">Debt</span>
-                      <span className="text-[10px] font-medium text-slate-950 dark:text-slate-50 tracking-widest">{currencySymbol}{Math.round(stats.totalLiabilities).toLocaleString()}</span>
+                    <div className="flex justify-between items-end pb-1.5 mb-2 sticky top-0 bg-brand-bg/95 backdrop-blur-md z-20 border-b border-brand-border">
+                      <span className="text-[10px] font-medium text-slate-500 uppercase tracking-[0.2em]">Debt</span>
+                      <span className="text-[10px] font-medium text-rose-500 tracking-widest">{currencySymbol}{Math.round(stats.totalLiabilities).toLocaleString()}</span>
                     </div>
                     <div className="space-y-0.5">
                       {renderSideBySideGroups(liabilityGroups, 'liability')}

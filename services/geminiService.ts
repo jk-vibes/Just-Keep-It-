@@ -71,22 +71,37 @@ async function withRetry<T>(fn: () => Promise<T>, retries = 3, delay = 15000): P
   });
 }
 
-export async function refineBatchTransactions(transactions: Array<{ id: string, amount: number, merchant: string, note: string, date: string }>): Promise<Array<{ id: string, merchant: string, category: Category, mainCategory: string, subCategory: string, note: string, isAvoidSuggestion: boolean, isDuplicateOf?: string }>> {
+export async function refineBatchTransactions(transactions: Array<{ id: string, amount: number, merchant: string, note: string, date: string }>, budgetContext?: string): Promise<Array<{ id: string, merchant: string, category: Category, mainCategory: string, subCategory: string, note: string, isAvoidSuggestion: boolean, isDuplicateOf?: string }>> {
   const prompt = `
+    Role: You are a strict, frugal, and highly critical "Daddy Mind" financial auditor. Your goal is to eliminate waste and maximize savings.
+    
     Analyze and categorize these ${transactions.length} transactions.
+    
+    ${budgetContext ? `BUDGET CONTEXT (Milestones): ${budgetContext}` : ''}
     
     CLEANING RULES:
     - 'merchant': Extract a clean, professional name. Strip IDs, dates, or symbols (e.g., "ZOMATO* 123" -> "Zomato").
+    - 'note': Generate a concise, descriptive note (max 10 words) that explains what the transaction likely was based on the merchant and category.
     
     TAXONOMY RULES (MANDATORY):
-    1. 'category' (BUCKET): MUST be exactly one of: [Needs, Wants, Savings, Avoids]. Note: Use "Savings" exactly, not "Saves".
+    1. 'category' (BUCKET): MUST be exactly one of: [Needs, Wants, Savings, Avoids].
+    
+    DADDY MIND CATEGORIZATION LOGIC:
+    - 'Needs': Essential survival (Rent, basic groceries, utilities, health). Be strict.
+    - 'Wants': Quality of life but not essential (Dining out, entertainment, hobbies).
+    - 'Savings': Investments, debt repayment, or actual savings transfers.
+    - 'Avoids': THIS IS YOUR PRIMARY TARGET. Flag transactions that are wasteful, impulsive, redundant, or overpriced.
+      - Examples: Late fees, convenience fees, excessive dining (if repeated), impulse shopping, unused subscriptions, or any transaction that feels like "burning money".
+      - IMPORTANT: If a transaction exceeds the remaining budget for its category (see Budget Context), it MUST be flagged as 'Avoids'.
+      - If a transaction is flagged as 'Avoids', 'isAvoidSuggestion' MUST be true.
+    
     2. 'mainCategory' (PRIMARY CATEGORY): Group by industry (e.g., Housing, Household, Logistics, Lifestyle, Leisure, Personal, Investment, Reserve, Waste, Impulse).
     3. 'subCategory' (SUB NODE): Specific item (e.g., Rent, Groceries, Fuel, Dining, Shopping, SIP, Subscriptions).
     
     STRICT CONSTRAINTS:
     - YOU MUST return a classification for EVERY transaction provided.
-    - DO NOT FAIL to provide 'category' (Bucket). It is the most important field for budget tracking.
-    - NEVER use "General", "Other", "Miscellaneous" or "Uncategorized" if you can infer a better category from the merchant name.
+    - DO NOT FAIL to provide 'category' (Bucket).
+    - NEVER use "General", "Other", "Miscellaneous" or "Uncategorized".
     
     Data: ${JSON.stringify(transactions)}
     Return JSON array.
@@ -95,7 +110,7 @@ export async function refineBatchTransactions(transactions: Array<{ id: string, 
   try {
     const response = await withRetry<GenerateContentResponse>(() => ai.models.generateContent({
       model: 'gemini-3-flash-preview',
-      contents: prompt,
+      contents: [{ parts: [{ text: prompt }] }],
       config: { 
         responseMimeType: "application/json",
         responseSchema: {
@@ -135,18 +150,24 @@ export async function refineBatchTransactions(transactions: Array<{ id: string, 
   }
 }
 
-export async function auditTransaction(expense: Expense, currency: string) {
+export async function auditTransaction(expense: Expense, currency: string, budgetContext?: string) {
   const prompt = `
+    Role: Strict "Daddy Mind" financial auditor.
     Audit this transaction:
     Merchant: ${expense.merchant || 'Unknown'}
     Note: ${expense.note || 'None'}
     Amount: ${Math.round(expense.amount)} ${currency}
     Current Bucket: ${expense.category}
     
-    RULES:
+    ${budgetContext ? `BUDGET CONTEXT: ${budgetContext}` : ''}
+    
+    DADDY MIND RULES:
     1. suggestedCategory: MUST be [Needs, Wants, Savings, Avoids].
-    2. suggestedMainCategory: Industry group (e.g., Housing, Lifestyle).
-    3. suggestedSubCategory: Specific item (e.g., Rent, Dining).
+    2. Flag as 'Avoids' if the transaction is wasteful, impulsive, unnecessary, or exceeds the remaining budget for its category.
+    3. suggestedMainCategory: Industry group (e.g., Housing, Lifestyle, Waste, Impulse).
+    4. suggestedSubCategory: Specific item (e.g., Rent, Dining, Late Fee).
+    5. merchant: Clean, professional name.
+    6. insight: A short (max 15 words) "Daddy Mind" comment on why this is categorized this way.
     
     Clean the merchant name and DO NOT use "General" or "Other".
     
@@ -156,7 +177,7 @@ export async function auditTransaction(expense: Expense, currency: string) {
   try {
     const response = await withRetry<GenerateContentResponse>(() => ai.models.generateContent({
       model: 'gemini-3-flash-preview',
-      contents: prompt,
+      contents: [{ parts: [{ text: prompt }] }],
       config: { 
         responseMimeType: "application/json",
         responseSchema: {
@@ -205,7 +226,7 @@ export async function getFatherlyAdvice(
   try {
     const response = await withRetry<GenerateContentResponse>(() => ai.models.generateContent({
       model: 'gemini-3-flash-preview',
-      contents: prompt,
+      contents: [{ parts: [{ text: prompt }] }],
     }));
     return response.text?.trim() || "Watch your step with those expenses, son.";
   } catch (error) {
@@ -215,16 +236,22 @@ export async function getFatherlyAdvice(
 
 export async function parseTransactionText(text: string, currency: string): Promise<{ entryType: 'Expense' | 'Income', amount: number, merchant: string, category: Category, mainCategory: string, subCategory: string, date: string, incomeType?: string, accountName?: string } | null> {
   const prompt = `
+    Role: Strict "Daddy Mind" financial auditor.
     Extract from: "${text}".
     Currency: ${currency}.
-    Required: Bucket (Needs/Wants/Savings/Avoids), Primary Category, Sub Node. Clean merchant. NO "General" descriptors.
+    Required: Bucket (Needs/Wants/Savings/Avoids), Primary Category, Sub Node. 
+    Clean merchant. NO "General" descriptors.
+    
+    DADDY MIND LOGIC:
+    - Flag wasteful/impulsive spending as 'Avoids'.
+    
     Return JSON.
   `;
 
   try {
     const response = await withRetry<GenerateContentResponse>(() => ai.models.generateContent({
       model: 'gemini-3-flash-preview',
-      contents: prompt,
+      contents: [{ parts: [{ text: prompt }] }],
       config: { 
         responseMimeType: "application/json",
         responseSchema: {
@@ -269,7 +296,7 @@ export async function generateQuickNote(merchant: string, mainCategory: string, 
   try {
     const response = await withRetry<GenerateContentResponse>(() => ai.models.generateContent({
       model: 'gemini-3-flash-preview',
-      contents: prompt,
+      contents: [{ parts: [{ text: prompt }] }],
     }));
     return response.text?.trim().replace(/^["']|["']$/g, '') || `${merchant}: ${subCategory}`;
   } catch (error) {
@@ -278,11 +305,19 @@ export async function generateQuickNote(merchant: string, mainCategory: string, 
 }
 
 export async function parseBulkTransactions(text: string, currency: string): Promise<any[]> {
-  const prompt = `Analyze logs, extract transactions. Currency ${currency}. Provide Bucket (Needs/Wants/Savings/Avoids), Primary Category, Sub Node. Clean merchants. JSON array.`;
+  const prompt = `
+    Role: Strict "Daddy Mind" financial auditor.
+    Analyze logs, extract transactions. Currency ${currency}. 
+    Provide Bucket (Needs/Wants/Savings/Avoids), Primary Category, Sub Node. 
+    Clean merchants. JSON array.
+    
+    DADDY MIND LOGIC:
+    - Be highly critical. Categorize wasteful spending as 'Avoids'.
+  `;
   try {
     const response = await withRetry<GenerateContentResponse>(() => ai.models.generateContent({
       model: 'gemini-3-flash-preview',
-      contents: prompt,
+      contents: [{ parts: [{ text: prompt }] }],
       config: { 
         responseMimeType: "application/json",
         responseSchema: {
@@ -318,13 +353,26 @@ export async function parseBulkTransactions(text: string, currency: string): Pro
 }
 
 export async function batchProcessNewTransactions(
-  items: Array<{ merchant: string, amount: number, date: string, note?: string }>
-): Promise<Array<{ merchant: string, category: Category, mainCategory: string, subCategory: string, intelligentNote: string }>> {
-  const prompt = `Process ${items.length} transactions. Assign Bucket (Needs/Wants/Savings/Avoids), Primary Category, Sub Node. Clean merchants. NO "General". JSON array.`;
+  items: Array<{ merchant: string, amount: number, date: string, note?: string }>,
+  budgetContext?: string
+): Promise<Array<{ merchant: string, category: Category, mainCategory: string, subCategory: string, intelligentNote: string, isAvoidSuggestion?: boolean }>> {
+  const prompt = `
+    Role: Strict "Daddy Mind" financial auditor.
+    Process ${items.length} transactions. 
+    Assign Bucket (Needs/Wants/Savings/Avoids), Primary Category, Sub Node. 
+    Clean merchants. NO "General". JSON array.
+    
+    ${budgetContext ? `BUDGET CONTEXT: ${budgetContext}` : ''}
+    
+    DADDY MIND LOGIC:
+    - Flag wasteful spending or spending that exceeds the remaining budget as 'Avoids'.
+    - If a transaction is flagged as 'Avoids', set 'isAvoidSuggestion' to true.
+    - 'intelligentNote': Generate a concise, descriptive note (max 10 words).
+  `;
   try {
     const response = await withRetry<GenerateContentResponse>(() => ai.models.generateContent({
       model: 'gemini-3-flash-preview',
-      contents: prompt,
+      contents: [{ parts: [{ text: prompt }] }],
       config: {
         responseMimeType: "application/json",
         responseSchema: {
@@ -368,10 +416,9 @@ export async function getDecisionAdvice(
 
   const prompt = `Evaluate: "${query}". NetWorth ${netWorth}, Assets ${assets}, Debt ${liabilities}, Spent ${currentMonthSpent}. Return JSON.`;
 
-  try {
     const response = await withRetry<GenerateContentResponse>(() => ai.models.generateContent({
       model: 'gemini-3-flash-preview',
-      contents: prompt,
+      contents: [{ parts: [{ text: prompt }] }],
       config: {
         responseMimeType: "application/json",
         responseSchema: {
@@ -389,7 +436,4 @@ export async function getDecisionAdvice(
       }
     }));
     return JSON.parse(response.text || '{}');
-  } catch (error) {
-    throw error;
-  }
 }

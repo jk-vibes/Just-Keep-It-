@@ -116,7 +116,7 @@ const AccountManager: React.FC<AccountManagerProps> = ({
                   </div>
                 </div>
                 <div className="flex items-center gap-3">
-                  <p className="text-[11px] font-black text-slate-900 dark:text-white">{currencySymbol}{Math.round(item.value).toLocaleString()}</p>
+                  <p className="text-[11px] font-black text-emerald-500">{currencySymbol}{Math.round(item.value).toLocaleString()}</p>
                   <button onClick={() => handleEdit(item)} className="p-1.5 text-slate-300 hover:text-indigo-500 transition-colors opacity-0 group-hover:opacity-100">
                       <Edit3 size={14} />
                   </button>

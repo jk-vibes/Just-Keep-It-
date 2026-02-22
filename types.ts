@@ -80,6 +80,8 @@ export interface WealthItem {
   accountNumber?: string; // Identification number
   value: number;
   limit?: number;
+  emiAmount?: number;
+  maturityDate?: string;
   date: string;
   isMock?: boolean;
   isImported?: boolean;
