@@ -33,7 +33,7 @@ import { generate12MonthData } from './utils/mockData';
 import { getFatherlyAdvice, batchProcessNewTransactions } from './services/geminiService';
 
 const STORAGE_KEY = 'jk_budget_data_whole_num_v12';
-const APP_VERSION = 'v1.3.0';
+const APP_VERSION = 'v.1.3.1';
 
 const INITIAL_SETTINGS: UserSettings = {
   monthlyIncome: 350000,
@@ -289,13 +289,25 @@ const App: React.FC = () => {
   const handleLoadMockData = useCallback(() => {
     triggerHaptic(50);
     const mock = generate12MonthData();
-    setExpenses(prev => [...mock.expenses, ...prev] as any);
-    setIncomes(prev => [...mock.incomes, ...prev]);
-    setWealthItems(prev => [...mock.wealthItems, ...prev]);
-    setBudgetItems(prev => [...mock.budgetItems, ...prev] as any);
-    setRules(prev => [...mock.rules, ...prev] as any);
-    setBills(prev => [...mock.bills, ...prev]);
-    setRecurringItems(prev => [...mock.recurringItems, ...prev] as any);
+    
+    const mergeUnique = (prev: any[], next: any[]) => {
+      const combined = [...next, ...prev];
+      const seen = new Set();
+      return combined.filter(item => {
+        if (!item.id || seen.has(item.id)) return false;
+        seen.add(item.id);
+        return true;
+      });
+    };
+
+    setExpenses(prev => mergeUnique(prev, mock.expenses));
+    setIncomes(prev => mergeUnique(prev, mock.incomes));
+    setWealthItems(prev => mergeUnique(prev, mock.wealthItems));
+    setBudgetItems(prev => mergeUnique(prev, mock.budgetItems));
+    setRules(prev => mergeUnique(prev, mock.rules));
+    setBills(prev => mergeUnique(prev, mock.bills));
+    setRecurringItems(prev => mergeUnique(prev, mock.recurringItems));
+
     setSettings(prev => ({ ...prev, hasLoadedMockData: true, monthlyIncome: 350000 }));
     showToast("Tactical demo data loaded into registry.", 'info');
   }, [showToast]);
@@ -402,15 +414,25 @@ const App: React.FC = () => {
     if (saved) {
       try {
         const parsed = JSON.parse(saved);
+        const dedupe = (arr: any[]) => {
+          if (!Array.isArray(arr)) return [];
+          const seen = new Set();
+          return arr.filter(item => {
+            if (!item.id || seen.has(item.id)) return false;
+            seen.add(item.id);
+            return true;
+          });
+        };
+
         if (parsed.settings) setSettings(prev => ({ ...INITIAL_SETTINGS, ...parsed.settings }));
-        if (parsed.expenses) setExpenses(parsed.expenses); 
-        if (parsed.incomes) setIncomes(parsed.incomes); 
-        if (parsed.wealthItems) setWealthItems(parsed.wealthItems);
-        if (parsed.bills) setBills(parsed.bills); 
-        if (parsed.budgetItems) setBudgetItems(parsed.budgetItems); 
-        if (parsed.rules) setRules(parsed.rules);
-        if (parsed.recurringItems) setRecurringItems(parsed.recurringItems); 
-        if (parsed.notifications) setNotifications(parsed.notifications);
+        if (parsed.expenses) setExpenses(dedupe(parsed.expenses)); 
+        if (parsed.incomes) setIncomes(dedupe(parsed.incomes)); 
+        if (parsed.wealthItems) setWealthItems(dedupe(parsed.wealthItems));
+        if (parsed.bills) setBills(dedupe(parsed.bills)); 
+        if (parsed.budgetItems) setBudgetItems(dedupe(parsed.budgetItems)); 
+        if (parsed.rules) setRules(dedupe(parsed.rules));
+        if (parsed.recurringItems) setRecurringItems(dedupe(parsed.recurringItems)); 
+        if (parsed.notifications) setNotifications(dedupe(parsed.notifications));
         if (parsed.user) { setUser(parsed.user); setIsAuthenticated(true); }
         if (parsed.notifiedBudgetGoalIds) setNotifiedBudgetGoalIds(parsed.notifiedBudgetGoalIds);
       } catch (e) {

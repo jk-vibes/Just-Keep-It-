@@ -107,33 +107,46 @@ const AddAccount: React.FC<AddAccountProps> = ({ settings, onSave, onUpdate, onD
   const currencySymbol = getCurrencySymbol(settings.currency);
 
   const handleSubmit = () => {
-    if (!name || !categoryText) return;
-
-    const availableSuggestions = type === 'Investment' ? ASSET_CATEGORIES : LIABILITY_CATEGORIES;
-    if (!availableSuggestions.includes(categoryText)) {
-      if (!window.confirm(`Add "${categoryText}" as a new account classification?`)) return;
-    }
+    const cleanName = (name || '').trim();
+    const cleanCategory = (categoryText || '').trim();
+    
+    if (!cleanName || !cleanCategory) return;
 
     triggerHaptic(20);
+    
+    const parsedValue = Math.round(parseFloat(value) || 0);
+    const parsedLimit = Math.round(parseFloat(limit) || 0);
+    const parsedEmi = Math.round(parseFloat(emiAmount) || 0);
+
     const payload: Omit<WealthItem, 'id'> = {
       type, 
-      category: categoryText.trim() as WealthCategory, 
-      group: groupName.trim() || categoryText.trim(), 
-      name: name.trim(), 
-      alias: (alias || name).trim(),
-      accountNumber: accountNumber.trim(),
-      value: Math.round(parseFloat(value) || 0),
-      date: new Date().toISOString()
+      category: cleanCategory as WealthCategory, 
+      group: (groupName || '').trim() || cleanCategory, 
+      name: cleanName, 
+      alias: (alias || '').trim(),
+      accountNumber: (accountNumber || '').trim(),
+      value: parsedValue,
+      date: new Date().toISOString(),
+      limit: cleanCategory === 'Credit Card' ? parsedLimit : undefined,
+      emiAmount: type === 'Liability' ? parsedEmi : undefined,
+      maturityDate: type === 'Liability' ? maturityDate : undefined,
     };
-    if (categoryText === 'Credit Card') payload.limit = Math.round(parseFloat(limit) || 0);
-    if (type === 'Liability') {
-      payload.emiAmount = Math.round(parseFloat(emiAmount) || 0);
-      payload.maturityDate = maturityDate;
-    }
 
-    if (isEditing && onUpdate && initialData?.id) onUpdate(initialData.id, payload);
-    else onSave(payload);
+    if (isEditing && onUpdate && initialData?.id) {
+      onUpdate(initialData.id, payload);
+    } else {
+      onSave(payload);
+    }
     onCancel();
+  };
+
+  const handleDelete = () => {
+    if (!isEditing || !onDelete || !initialData?.id) return;
+    if (window.confirm('Delete this account?')) {
+      triggerHaptic(30);
+      onDelete(initialData.id);
+      onCancel();
+    }
   };
 
   const selectClasses = "w-full bg-brand-accent p-2 rounded-xl text-[10px] font-black border border-brand-border text-brand-text appearance-none transition-all outline-none focus:ring-1 focus:ring-brand-primary/20 truncate shadow-inner";
@@ -180,7 +193,7 @@ const AddAccount: React.FC<AddAccountProps> = ({ settings, onSave, onUpdate, onD
           <div className="grid grid-cols-2 gap-3">
              <div className="space-y-0.5">
                 <span className={labelClass}>Account Type</span>
-                <select value={type} onChange={(e) => { const nt = e.target.value as WealthType; setType(nt); setCategoryText(nt === 'Investment' ? '' : ''); }} className={selectClasses}>
+                <select value={type} onChange={(e) => { const nt = e.target.value as WealthType; setType(nt); }} className={selectClasses}>
                     <option value="Investment">Asset</option>
                     <option value="Liability">Liability</option>
                 </select>
@@ -188,11 +201,26 @@ const AddAccount: React.FC<AddAccountProps> = ({ settings, onSave, onUpdate, onD
              <Typeahead
                 label="Classification"
                 value={categoryText}
-                onChange={setCategoryText}
+                onChange={(val) => {
+                  const oldVal = categoryText;
+                  setCategoryText(val);
+                  if (!groupName || groupName === oldVal) setGroupName(val);
+                }}
                 suggestions={type === 'Investment' ? ASSET_CATEGORIES : LIABILITY_CATEGORIES}
                 placeholder="e.g. Savings"
                 canCreate={true}
              />
+          </div>
+
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-0.5">
+              <span className={labelClass}>Portfolio / Group</span>
+              <input type="text" value={groupName} onChange={(e) => setGroupName(e.target.value)} placeholder="e.g. Retirement" className={selectClasses} />
+            </div>
+            <div className="space-y-0.5">
+              <span className={labelClass}>Display Alias</span>
+              <input type="text" value={alias} onChange={(e) => setAlias(e.target.value)} placeholder="e.g. My Main Bank" className={selectClasses} />
+            </div>
           </div>
 
           <div className="space-y-0.5">
@@ -240,11 +268,11 @@ const AddAccount: React.FC<AddAccountProps> = ({ settings, onSave, onUpdate, onD
         <div className="p-4 border-t border-brand-border bg-brand-surface shrink-0">
           <div className="flex gap-2">
              {isEditing && onDelete && (
-               <button onClick={() => { triggerHaptic(); if(window.confirm('Delete this account?')) onDelete(initialData!.id); }} className="p-3 bg-rose-50 dark:bg-rose-950/20 text-rose-500 rounded-xl active:scale-90 transition-all">
+               <button onClick={handleDelete} className="p-3 bg-rose-50 dark:bg-rose-950/20 text-rose-500 rounded-xl active:scale-90 transition-all">
                   <Trash2 size={18} />
                </button>
              )}
-             <button onClick={handleSubmit} disabled={!name || !categoryText} className="flex-1 py-3 bg-brand-primary text-brand-headerText font-black rounded-xl shadow-lg active:scale-[0.98] transition-all flex items-center justify-center gap-2 uppercase tracking-[0.15em] text-[10px] disabled:opacity-50">
+             <button onClick={handleSubmit} disabled={!name.trim() || !categoryText.trim()} className="flex-1 py-3 bg-brand-primary text-brand-headerText font-black rounded-xl shadow-lg active:scale-[0.98] transition-all flex items-center justify-center gap-2 uppercase tracking-[0.15em] text-[10px] disabled:opacity-50">
                <Check size={16} strokeWidth={4} /> Save Account
              </button>
           </div>

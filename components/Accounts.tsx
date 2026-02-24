@@ -23,6 +23,7 @@ import {
   Cell, LabelList, CartesianGrid 
 } from 'recharts';
 import { triggerHaptic } from '../utils/haptics';
+import AssetTree from './AssetTree';
 
 interface AccountsProps {
   wealthItems: WealthItem[];
@@ -121,7 +122,7 @@ const UltraCompactRow: React.FC<{
         </div>
         <div className="flex flex-col min-w-0">
           <div className="flex items-center gap-1.5 mb-1.5">
-            <span className="text-[10px] font-medium text-slate-950 dark:text-slate-50 truncate capitalize tracking-tight leading-none">
+            <span className="text-[10px] font-medium text-slate-500 truncate capitalize tracking-tight leading-none">
               {item.name}
             </span>
             {item.accountNumber && (
@@ -182,7 +183,7 @@ const GridAccountItem: React.FC<{
     >
       <div className="flex justify-between items-center gap-2">
         <div className="flex flex-col min-w-0">
-          <span className="text-[10px] font-medium capitalize truncate tracking-tight leading-none group-hover:text-brand-accentUi transition-colors text-slate-950 dark:text-slate-100">
+          <span className="text-[10px] font-medium capitalize truncate tracking-tight leading-none group-hover:text-brand-accentUi transition-colors text-slate-500">
             {item.name}
           </span>
           {item.type === 'Liability' && item.emiAmount && item.emiAmount > 0 && (
@@ -215,7 +216,7 @@ const CategoryCard: React.FC<{
   return (
     <div className={`p-3 rounded-2xl border ${borderColor} ${bgColor} flex flex-col gap-2 shadow-sm`}>
       <div className="flex justify-between items-center border-b border-brand-border pb-1.5 mb-0.5">
-        <span className="text-[8px] font-black uppercase tracking-widest text-slate-500 truncate max-w-[60%]">{category}</span>
+        <span className="text-[8px] font-black uppercase tracking-widest text-black dark:text-white truncate max-w-[60%]">{category}</span>
         <span className={`text-[10px] font-black ${color}`}>{currencySymbol}{Math.round(total).toLocaleString()}</span>
       </div>
       <div className="space-y-1.5">
@@ -226,7 +227,7 @@ const CategoryCard: React.FC<{
             className="flex justify-between items-center group cursor-pointer"
           >
             <div className="flex flex-col min-w-0">
-              <span className="text-[9px] font-medium text-brand-text truncate group-hover:text-brand-primary transition-colors">{item.name}</span>
+              <span className="text-[9px] font-medium text-slate-500 truncate group-hover:text-brand-primary transition-colors">{item.name}</span>
               {item.emiAmount && item.emiAmount > 0 && (
                 <span className="text-[6px] font-bold text-rose-500/60 uppercase tracking-tighter">EMI: {currencySymbol}{Math.round(item.emiAmount).toLocaleString()}</span>
               )}
@@ -260,6 +261,7 @@ const Accounts: React.FC<AccountsProps> = ({
 }) => {
   const [activeView, setActiveView] = useState<'dashboard' | 'registry'>('registry');
   const [registryLayout, setRegistryLayout] = useState<'list' | 'grid' | 'bento'>('grid');
+  const [showOrchard, setShowOrchard] = useState(false);
   const currencySymbol = getCurrencySymbol(settings.currency);
   
   const stats = useMemo(() => {
@@ -361,7 +363,7 @@ const Accounts: React.FC<AccountsProps> = ({
       return (
         <div key={group} className="flex flex-col mt-4 first:mt-0">
           <div className="flex justify-between items-center px-1 mb-1 border-b border-brand-border pb-1">
-            <span className="text-[10px] font-medium uppercase tracking-widest leading-none text-slate-500">{group}</span>
+            <span className="text-[10px] font-medium uppercase tracking-widest leading-none text-black dark:text-white">{group}</span>
             <span className={`text-[10px] font-medium tracking-widest leading-none ${valueColor}`}>{currencySymbol}{Math.round(groupSubtotal).toLocaleString()}</span>
           </div>
           <div className="space-y-0.5">
@@ -457,7 +459,7 @@ const Accounts: React.FC<AccountsProps> = ({
                       <Target size={12} className="text-indigo-400" />
                       <span className="text-[8px] font-black text-slate-500 uppercase tracking-widest">Liquidity index</span>
                    </div>
-                   <h3 className="textxl font-black text-indigo-400 tracking-tighter">{Math.round(stats.liquidityRatio)}%</h3>
+                   <h3 className="text-xl font-black text-indigo-400 tracking-tighter">{Math.round(stats.liquidityRatio)}%</h3>
                    <div className="w-full h-1 bg-brand-accent/40 rounded-full mt-2 overflow-hidden">
                       <div className="h-full bg-indigo-500 transition-all duration-1000" style={{ width: `${stats.liquidityRatio}%` }} />
                    </div>
@@ -467,7 +469,7 @@ const Accounts: React.FC<AccountsProps> = ({
                       <AlertCircle size={12} className="text-rose-500" />
                       <span className="text-[8px] font-black text-slate-500 uppercase tracking-widest">Debt burden</span>
                    </div>
-                   <h3 className="textxl font-black text-rose-500 tracking-tighter">{currencySymbol}{Math.round(stats.totalLiabilities).toLocaleString()}</h3>
+                   <h3 className="text-xl font-black text-rose-500 tracking-tighter">{currencySymbol}{Math.round(stats.totalLiabilities).toLocaleString()}</h3>
                    <div className="w-full h-1 bg-brand-accent/40 rounded-full mt-2 overflow-hidden">
                       <div className="h-full bg-rose-500 transition-all duration-1000" style={{ width: `${Math.min(100, (stats.totalLiabilities / (stats.totalAssets || 1)) * 100)}%` }} />
                    </div>
@@ -475,29 +477,43 @@ const Accounts: React.FC<AccountsProps> = ({
              </div>
 
              <section className="bg-brand-surface rounded-[32px] p-5 border border-brand-border shadow-sm flex flex-col gap-4 overflow-hidden">
-                <div className="flex items-center gap-2.5">
-                  <div className="p-2 rounded-xl bg-emerald-500/10 text-emerald-500">
-                    <ArrowUpRight size={16} />
+                <div className="flex items-center justify-between gap-2.5">
+                  <div className="flex items-center gap-2.5">
+                    <div className="p-2 rounded-xl bg-emerald-500/10 text-emerald-500">
+                      <ArrowUpRight size={16} />
+                    </div>
+                    <div>
+                      <h3 className="text-[10px] font-black text-slate-500 uppercase tracking-[0.2em] leading-none">Asset Composition</h3>
+                      <p className="text-xl font-black text-brand-text mt-1.5 tracking-tighter">{currencySymbol}{stats.totalAssets.toLocaleString()}</p>
+                    </div>
                   </div>
-                  <div>
-                    <h3 className="text-[10px] font-black text-slate-500 uppercase tracking-[0.2em] leading-none">Asset Composition</h3>
-                    <p className="textxl font-black text-brand-text mt-1.5 tracking-tighter">{currencySymbol}{stats.totalAssets.toLocaleString()}</p>
-                  </div>
+                  <button 
+                    onClick={() => { triggerHaptic(); setShowOrchard(!showOrchard); }}
+                    className={`p-2 rounded-xl border transition-all ${showOrchard ? 'bg-brand-primary text-brand-headerText border-brand-primary' : 'bg-brand-accent text-slate-500 border-brand-border'}`}
+                  >
+                    <Sparkles size={14} />
+                  </button>
                 </div>
-                <div className="h-56 w-full -ml-8">
-                  <ResponsiveContainer width="115%" height="100%">
-                    <BarChart layout="vertical" data={stats.assetChartData} margin={{ top: 10, right: 60, left: 20, bottom: 10 }}>
-                      <XAxis type="number" hide />
-                      <YAxis dataKey="name" type="category" axisLine={false} tickLine={false} tick={{ fontSize: 9, fontWeight: 900, fill: '#64748b' }} width={80} />
-                      <Tooltip cursor={{fill: 'transparent'}} contentStyle={{ backgroundColor: 'var(--brand-surface)', border: '1px solid var(--brand-border)', borderRadius: '12px', fontSize: '10px' }} />
-                      <Bar dataKey="value" radius={[0, 8, 8, 0]} barSize={20}>
-                        {stats.assetChartData.map((entry, index) => (
-                          <Cell key={`cell-${index}`} fill={WEALTH_COLORS[entry.name] || '#6366f1'} />
-                        ))}
-                        <LabelList content={<CustomLabel currencySymbol={currencySymbol} position="right" />} />
-                      </Bar>
-                    </BarChart>
-                  </ResponsiveContainer>
+                <div className="h-64 w-full relative">
+                  {showOrchard ? (
+                    <AssetTree wealthItems={wealthItems} currency={settings.currency} />
+                  ) : (
+                    <div className="-ml-8 h-full">
+                      <ResponsiveContainer width="115%" height="100%">
+                        <BarChart layout="vertical" data={stats.assetChartData} margin={{ top: 10, right: 60, left: 20, bottom: 10 }}>
+                          <XAxis type="number" hide />
+                          <YAxis dataKey="name" type="category" axisLine={false} tickLine={false} tick={{ fontSize: 9, fontWeight: 900, fill: '#64748b' }} width={80} />
+                          <Tooltip cursor={{fill: 'transparent'}} contentStyle={{ backgroundColor: 'var(--brand-surface)', border: '1px solid var(--brand-border)', borderRadius: '12px', fontSize: '10px' }} />
+                          <Bar dataKey="value" radius={[0, 8, 8, 0]} barSize={20}>
+                            {stats.assetChartData.map((entry, index) => (
+                              <Cell key={`cell-${index}`} fill={WEALTH_COLORS[entry.name] || '#6366f1'} />
+                            ))}
+                            <LabelList content={<CustomLabel currencySymbol={currencySymbol} position="right" />} />
+                          </Bar>
+                        </BarChart>
+                      </ResponsiveContainer>
+                    </div>
+                  )}
                 </div>
              </section>
           </div>
@@ -519,7 +535,7 @@ const Accounts: React.FC<AccountsProps> = ({
                       return (
                         <div key={group} className="bg-brand-surface">
                           <div className="px-4 py-1.5 bg-brand-accent/20 flex justify-between items-center border-b border-brand-border">
-                            <span className="text-[10px] font-medium text-emerald-500 uppercase tracking-widest">{group}</span>
+                            <span className="text-[10px] font-medium text-black dark:text-white uppercase tracking-widest">{group}</span>
                             <span className="text-[10px] font-medium text-emerald-500 tracking-widest">
                               {currencySymbol}{Math.round(total).toLocaleString()}
                             </span>
@@ -553,7 +569,7 @@ const Accounts: React.FC<AccountsProps> = ({
                       return (
                         <div key={group} className="bg-brand-surface">
                           <div className="px-4 py-1.5 bg-brand-accent/20 flex justify-between items-center border-b border-brand-border">
-                            <span className="text-[10px] font-medium text-rose-500 uppercase tracking-widest">{group}</span>
+                            <span className="text-[10px] font-medium text-black dark:text-white uppercase tracking-widest">{group}</span>
                             <span className="text-[10px] font-medium text-rose-500 tracking-widest">
                               {currencySymbol}{Math.round(total).toLocaleString()}
                             </span>

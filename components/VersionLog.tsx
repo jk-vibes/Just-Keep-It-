@@ -14,6 +14,17 @@ interface LogEntry {
 
 const VERSION_HISTORY: LogEntry[] = [
   {
+    version: '.1.3.1',
+    date: 'FEB 22, 2026',
+    changes: [
+      '⭐ Visual Hierarchy: Swapped font colors in the Account screen. Group headers now feature high-contrast black/white text, while account entries use a subtle gray for better scannability.',
+      '⭐ Robust Registry: Enhanced the Add/Edit Account workflow with improved validation and non-blocking custom category creation.',
+      '⭐ Data Integrity: Implemented strict deduplication logic when loading mock data to prevent duplicate registry keys.',
+      '⭐ UI Refinement: Optimized account entry rows with theme-aware color logic for both light and dark modes.',
+      'System Stability: Fixed a bug where saving accounts with custom classifications would occasionally fail to trigger UI updates.'
+    ]
+  },
+  {
     version: '1.3.0',
     date: 'FEB 14, 2026',
     changes: [
@@ -91,7 +102,9 @@ const VersionLog: React.FC<VersionLogProps> = ({ onClose }) => {
 
               <div className="space-y-3">
                 <div className="flex items-baseline gap-2">
-                  <h4 className="text-sm font-black text-slate-900 dark:text-white uppercase tracking-tighter">v{entry.version}</h4>
+                  <h4 className="text-sm font-black text-slate-900 dark:text-white uppercase tracking-tighter">
+                    {entry.version.startsWith('v') ? entry.version : `v${entry.version}`}
+                  </h4>
                   <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">{entry.date}</span>
                 </div>
                 
