@@ -43,7 +43,8 @@ export interface Expense {
   id: string;
   amount: number;
   date: string;
-  category: Category; // The Bucket
+  category: Category; // The Bucket (Needs, Wants, Savings, Avoids)
+  originalCategory?: Category; // The bucket it belongs to if it wasn't an Avoid
   mainCategory: string; // The "Category" level
   subCategory?: string; // The "Sub-Category" level
   paymentMethod?: PaymentMethod;
@@ -56,6 +57,9 @@ export interface Expense {
   billId?: string; // Optional link to a captured bill
   ruleId?: string; // Track which rule categorized this
   isAIUpgraded?: boolean; // Track if AI handled it
+  isAvoid?: boolean; // Explicit flag for Avoids
+  isHiddenCharge?: boolean;
+  isStatementTransaction?: boolean;
 }
 
 export interface Income {
@@ -68,6 +72,11 @@ export interface Income {
   targetAccountId?: string; 
   isMock?: boolean;
   isImported?: boolean;
+}
+
+export interface WealthHistoryEntry {
+  date: string;
+  value: number;
 }
 
 export interface WealthItem {
@@ -85,6 +94,7 @@ export interface WealthItem {
   date: string;
   isMock?: boolean;
   isImported?: boolean;
+  history?: WealthHistoryEntry[];
 }
 
 export interface BudgetRule {
@@ -95,6 +105,7 @@ export interface BudgetRule {
   subCategory?: string;
   isImported?: boolean;
   isMock?: boolean;
+  isManual?: boolean; // If true, AI should not overwrite this
 }
 
 export interface RecurringItem {

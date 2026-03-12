@@ -24,6 +24,7 @@ import {
 } from 'recharts';
 import { triggerHaptic } from '../utils/haptics';
 import AssetTree from './AssetTree';
+import LineDrawingTree from './LineDrawingTree';
 
 interface AccountsProps {
   wealthItems: WealthItem[];
@@ -42,6 +43,7 @@ interface AccountsProps {
   onAddTransferClick?: () => void;
   onDeleteExpense: (id: string) => void;
   onDeleteIncome: (id: string) => void;
+  onAddStatementTransactions: (accId: string, txs: Partial<Expense>[]) => void;
   externalShowAdd?: boolean;
   onAddClose?: () => void;
 }
@@ -125,10 +127,10 @@ const UltraCompactRow: React.FC<{
             <span className="text-[10px] font-medium text-slate-500 truncate capitalize tracking-tight leading-none">
               {item.name}
             </span>
-            {item.accountNumber && (
+            {!!item.accountNumber && (
               <div className="flex items-center gap-0.5 opacity-40">
                 <Hash size={7} />
-                <span className="text-[7px] font-bold text-slate-500">{item.accountNumber.slice(-4).padStart(item.accountNumber.length, '•')}</span>
+                <span className="text-[7px] font-bold text-slate-500">{String(item.accountNumber).slice(-4).padStart(String(item.accountNumber).length, '•')}</span>
               </div>
             )}
           </div>
@@ -141,9 +143,9 @@ const UltraCompactRow: React.FC<{
                  Avail: {currencySymbol}{Math.round(availableLimit).toLocaleString()}
                </span>
              )}
-             {item.type === 'Liability' && item.emiAmount && item.emiAmount > 0 && (
+             {item.type === 'Liability' && (item.emiAmount || 0) > 0 && (
                <span className="text-[6px] font-black text-rose-400 uppercase tracking-widest bg-rose-500/10 px-1 rounded">
-                 EMI: {currencySymbol}{Math.round(item.emiAmount).toLocaleString()}
+                 EMI: {currencySymbol}{Math.round(item.emiAmount!).toLocaleString()}
                </span>
              )}
           </div>
@@ -186,9 +188,9 @@ const GridAccountItem: React.FC<{
           <span className="text-[10px] font-medium capitalize truncate tracking-tight leading-none group-hover:text-brand-accentUi transition-colors text-slate-500">
             {item.name}
           </span>
-          {item.type === 'Liability' && item.emiAmount && item.emiAmount > 0 && (
+          {item.type === 'Liability' && (item.emiAmount || 0) > 0 && (
             <span className="text-[7px] font-bold text-rose-500/70 uppercase tracking-widest mt-1">
-              EMI: {currencySymbol}{Math.round(item.emiAmount).toLocaleString()}
+              EMI: {currencySymbol}{Math.round(item.emiAmount!).toLocaleString()}
             </span>
           )}
         </div>
@@ -228,8 +230,8 @@ const CategoryCard: React.FC<{
           >
             <div className="flex flex-col min-w-0">
               <span className="text-[9px] font-medium text-slate-500 truncate group-hover:text-brand-primary transition-colors">{item.name}</span>
-              {item.emiAmount && item.emiAmount > 0 && (
-                <span className="text-[6px] font-bold text-rose-500/60 uppercase tracking-tighter">EMI: {currencySymbol}{Math.round(item.emiAmount).toLocaleString()}</span>
+              {(item.emiAmount || 0) > 0 && (
+                <span className="text-[6px] font-bold text-rose-500/60 uppercase tracking-tighter">EMI: {currencySymbol}{Math.round(item.emiAmount!).toLocaleString()}</span>
               )}
             </div>
             <span className="text-[9px] font-bold text-slate-500 shrink-0 ml-2">{currencySymbol}{Math.round(item.value + (accountBills[item.id]?.amount || 0)).toLocaleString()}</span>
@@ -261,7 +263,7 @@ const Accounts: React.FC<AccountsProps> = ({
 }) => {
   const [activeView, setActiveView] = useState<'dashboard' | 'registry'>('registry');
   const [registryLayout, setRegistryLayout] = useState<'list' | 'grid' | 'bento'>('grid');
-  const [showOrchard, setShowOrchard] = useState(false);
+  const [assetCompositionView, setAssetCompositionView] = useState<'chart' | 'orchard' | 'sketch'>('chart');
   const currencySymbol = getCurrencySymbol(settings.currency);
   
   const stats = useMemo(() => {
@@ -298,9 +300,17 @@ const Accounts: React.FC<AccountsProps> = ({
       liquidityRatio,
       totalEmi: Math.round(totalEmi),
       assetChartData: Object.entries(assetDist).map(([name, value]) => ({ name, value: Math.round(value as number) })).sort((a, b) => b.value - a.value),
-      liabilityChartData: Object.entries(liabilityDist).map(([name, value]) => ({ name, value: Math.round(value as number) })).sort((a, b) => b.value - a.value)
+      liabilityChartData: Object.entries(liabilityDist).map(([name, value]) => ({ name, value: Math.round(value as number) })).sort((a, b) => b.value - a.value),
+      asOnDate: wealthItems.filter(i => i.type === 'Investment').length > 0 
+        ? new Date(Math.max(...wealthItems.filter(i => i.type === 'Investment').map(i => new Date(i.date).getTime()))).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })
+        : null
     };
   }, [wealthItems, bills]);
+
+  const assetCompositionHeight = useMemo(() => {
+    const count = wealthItems.filter(i => i.type === 'Investment').length;
+    return Math.max(320, count * 32);
+  }, [wealthItems]);
 
   const accountBillsInfo = useMemo(() => {
     const map: Record<string, { amount: number, earliestDueDate?: string }> = {};
@@ -452,9 +462,9 @@ const Accounts: React.FC<AccountsProps> = ({
 
       <div className="flex-1 overflow-y-auto no-scrollbar">
         {activeView === 'dashboard' ? (
-          <div className="p-4 space-y-4 animate-slide-up pb-10">
-             <div className="grid grid-cols-2 gap-3">
-                <section className="bg-brand-surface p-4 rounded-[28px] border border-brand-border shadow-sm">
+          <div className="px-0.5 py-4 space-y-3 animate-slide-up pb-10">
+             <div className="grid grid-cols-2 gap-2">
+                <section className="bg-brand-surface p-4 rounded-xl border border-brand-border shadow-sm">
                    <div className="flex items-center gap-2 mb-2 opacity-60">
                       <Target size={12} className="text-indigo-400" />
                       <span className="text-[8px] font-black text-slate-500 uppercase tracking-widest">Liquidity index</span>
@@ -464,7 +474,7 @@ const Accounts: React.FC<AccountsProps> = ({
                       <div className="h-full bg-indigo-500 transition-all duration-1000" style={{ width: `${stats.liquidityRatio}%` }} />
                    </div>
                 </section>
-                <section className="bg-brand-surface p-4 rounded-[28px] border border-brand-border shadow-sm">
+                <section className="bg-brand-surface p-4 rounded-xl border border-brand-border shadow-sm">
                    <div className="flex items-center gap-2 mb-2 opacity-60">
                       <AlertCircle size={12} className="text-rose-500" />
                       <span className="text-[8px] font-black text-slate-500 uppercase tracking-widest">Debt burden</span>
@@ -476,7 +486,7 @@ const Accounts: React.FC<AccountsProps> = ({
                 </section>
              </div>
 
-             <section className="bg-brand-surface rounded-[32px] p-5 border border-brand-border shadow-sm flex flex-col gap-4 overflow-hidden">
+             <section className="bg-brand-surface rounded-xl py-5 px-4 border border-brand-border shadow-sm flex flex-col gap-4 overflow-hidden">
                 <div className="flex items-center justify-between gap-2.5">
                   <div className="flex items-center gap-2.5">
                     <div className="p-2 rounded-xl bg-emerald-500/10 text-emerald-500">
@@ -485,20 +495,39 @@ const Accounts: React.FC<AccountsProps> = ({
                     <div>
                       <h3 className="text-[10px] font-black text-slate-500 uppercase tracking-[0.2em] leading-none">Asset Composition</h3>
                       <p className="text-xl font-black text-brand-text mt-1.5 tracking-tighter">{currencySymbol}{stats.totalAssets.toLocaleString()}</p>
+                      {stats.asOnDate && (
+                        <p className="text-[8px] font-medium text-slate-400 italic mt-0.5 leading-none">As on {stats.asOnDate}</p>
+                      )}
                     </div>
                   </div>
-                  <button 
-                    onClick={() => { triggerHaptic(); setShowOrchard(!showOrchard); }}
-                    className={`p-2 rounded-xl border transition-all ${showOrchard ? 'bg-brand-primary text-brand-headerText border-brand-primary' : 'bg-brand-accent text-slate-500 border-brand-border'}`}
-                  >
-                    <Sparkles size={14} />
-                  </button>
+                  <div className="flex items-center gap-1.5">
+                    <button 
+                      onClick={() => { triggerHaptic(); setAssetCompositionView('chart'); }}
+                      className={`p-1.5 rounded-lg border transition-all ${assetCompositionView === 'chart' ? 'bg-brand-primary text-brand-headerText border-brand-primary' : 'bg-brand-accent text-slate-500 border-brand-border'}`}
+                    >
+                      <BarChart3 size={12} />
+                    </button>
+                    <button 
+                      onClick={() => { triggerHaptic(); setAssetCompositionView('orchard'); }}
+                      className={`p-1.5 rounded-lg border transition-all ${assetCompositionView === 'orchard' ? 'bg-brand-primary text-brand-headerText border-brand-primary' : 'bg-brand-accent text-slate-500 border-brand-border'}`}
+                    >
+                      <Sparkles size={12} />
+                    </button>
+                    <button 
+                      onClick={() => { triggerHaptic(); setAssetCompositionView('sketch'); }}
+                      className={`p-1.5 rounded-lg border transition-all ${assetCompositionView === 'sketch' ? 'bg-brand-primary text-brand-headerText border-brand-primary' : 'bg-brand-accent text-slate-500 border-brand-border'}`}
+                    >
+                      <Activity size={12} />
+                    </button>
+                  </div>
                 </div>
-                <div className="h-64 w-full relative">
-                  {showOrchard ? (
-                    <AssetTree wealthItems={wealthItems} currency={settings.currency} />
+                <div style={{ height: assetCompositionView === 'chart' ? '256px' : `${assetCompositionHeight}px` }} className="w-full relative transition-all duration-500">
+                  {assetCompositionView === 'orchard' ? (
+                    <AssetTree wealthItems={wealthItems} currency={settings.currency} height={assetCompositionHeight} />
+                  ) : assetCompositionView === 'sketch' ? (
+                    <LineDrawingTree wealthItems={wealthItems} currency={settings.currency} height={assetCompositionHeight} />
                   ) : (
-                    <div className="-ml-8 h-full">
+                    <div className="-ml-8 h-64">
                       <ResponsiveContainer width="115%" height="100%">
                         <BarChart layout="vertical" data={stats.assetChartData} margin={{ top: 10, right: 60, left: 20, bottom: 10 }}>
                           <XAxis type="number" hide />
@@ -634,9 +663,14 @@ const Accounts: React.FC<AccountsProps> = ({
               <div className="flex-1 flex flex-col overflow-hidden">
                 <div className="grid grid-cols-2 flex-1 gap-x-3 px-4 py-3 overflow-y-auto no-scrollbar">
                   <div className="flex flex-col">
-                    <div className="flex justify-between items-end pb-1.5 mb-2 sticky top-0 bg-brand-bg/95 backdrop-blur-md z-20 border-b border-brand-border">
-                      <span className="text-[10px] font-medium text-slate-500 uppercase tracking-[0.2em]">Assets</span>
-                      <span className="text-[10px] font-medium text-emerald-500 tracking-widest">{currencySymbol}{Math.round(stats.totalAssets).toLocaleString()}</span>
+                    <div className="flex flex-col pb-1.5 mb-2 sticky top-0 bg-brand-bg/95 backdrop-blur-md z-20 border-b border-brand-border">
+                      <div className="flex justify-between items-end">
+                        <span className="text-[10px] font-medium text-slate-500 uppercase tracking-[0.2em]">Assets</span>
+                        <span className="text-[10px] font-medium text-emerald-500 tracking-widest">{currencySymbol}{Math.round(stats.totalAssets).toLocaleString()}</span>
+                      </div>
+                      {stats.asOnDate && (
+                        <span className="text-[7px] font-medium text-slate-400 italic mt-0.5">As on {stats.asOnDate}</span>
+                      )}
                     </div>
                     <div className="space-y-0.5">
                       {renderSideBySideGroups(assetGroups, 'asset')}

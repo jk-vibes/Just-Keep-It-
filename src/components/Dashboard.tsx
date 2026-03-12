@@ -68,8 +68,18 @@ const Dashboard: React.FC<DashboardProps> = ({
     const totalIncome = monthlyIncomes.reduce((sum, i) => sum + i.amount, 0) || settings.monthlyIncome;
     
     const catData = (['Needs', 'Wants', 'Savings', 'Avoids'] as const).map(cat => {
-      const val = currentExps.filter(e => e.category === cat).reduce((sum, e) => sum + e.amount, 0);
-      const budget = budgetItems.filter(b => b.category === cat).reduce((sum, b) => sum + b.amount, 0);
+      let val;
+      if (cat === 'Avoids') {
+        val = currentExps.filter(e => e.isAvoid).reduce((sum, e) => sum + e.amount, 0);
+      } else {
+        val = currentExps.filter(e => e.category === cat && !e.isAvoid).reduce((sum, e) => sum + e.amount, 0);
+      }
+      
+      const splitPercentage = settings.split[cat as keyof typeof settings.split] || 0;
+      const budget = cat === 'Avoids'
+        ? 0
+        : (settings.monthlyIncome * splitPercentage) / 100;
+      
       return { 
         name: cat, 
         value: val || 0.1, 
@@ -81,7 +91,7 @@ const Dashboard: React.FC<DashboardProps> = ({
 
     const surplus = totalIncome - spent;
     const retentionRate = totalIncome > 0 ? (surplus / totalIncome) * 100 : 0;
-    const avoidsTotal = currentExps.filter(e => e.category === 'Avoids').reduce((sum, e) => sum + e.amount, 0);
+    const avoidsTotal = currentExps.filter(e => e.isAvoid).reduce((sum, e) => sum + e.amount, 0);
     const efficiencyRate = spent > 0 ? (1 - (avoidsTotal / spent)) * 100 : 100;
     
     const today = new Date();
@@ -92,7 +102,7 @@ const Dashboard: React.FC<DashboardProps> = ({
     const projectedFinish = dailyBurn * daysInMonth;
 
     return { spent: Math.round(spent), income: Math.round(totalIncome), surplus: Math.round(surplus), retentionRate, catData, dailyBurn, projectedFinish, efficiencyRate, avoidsTotal: Math.round(avoidsTotal) };
-  }, [expenses, incomes, settings.monthlyIncome, viewDate, budgetItems]);
+  }, [expenses, incomes, settings, viewDate]);
 
   const { trendData, categoryComparisonData } = useMemo(() => {
     const tData = [];
@@ -148,7 +158,7 @@ const Dashboard: React.FC<DashboardProps> = ({
       </div>
 
       <div className={`px-0.5 ${isCompact ? 'space-y-1.5' : 'space-y-3'}`}>
-        <section className={`bg-brand-surface ${isCompact ? 'rounded-[20px] p-3' : 'rounded-[28px] p-5'} text-brand-text shadow-xl relative overflow-hidden flex items-center justify-between border border-brand-border`}>
+        <section className={`bg-brand-surface ${isCompact ? 'rounded-[20px] p-3 pt-4' : 'rounded-[28px] p-5 pt-7'} text-brand-text shadow-xl relative overflow-hidden flex items-center justify-between border border-brand-border`}>
           <div className="absolute top-0 right-0 p-2 opacity-5 rotate-12">
             <Landmark size={isCompact ? 40 : 60} />
           </div>

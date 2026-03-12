@@ -65,6 +65,7 @@ interface LedgerProps {
   addNotification: (notif: Omit<Notification, 'timestamp' | 'read'> & { id?: string }) => void;
   showToast: (message: string, type?: 'success' | 'error' | 'info' | 'advice') => void;
   onImport: (file: File) => Promise<void>;
+  onDeduplicate: () => void;
   initialFilter?: string | null;
   budgetItems: BudgetItem[];
 }
@@ -119,14 +120,14 @@ const BulkEditModal: React.FC<{
         <div className="p-5 space-y-5">
           <div>
             <span className={labelClass}>Registry Bucket</span>
-            <div className="grid grid-cols-2 gap-2">
-              {(['Needs', 'Wants', 'Savings', 'Avoids'] as Category[]).map(cat => (
+            <div className="grid grid-cols-3 gap-2">
+              {(['Needs', 'Wants', 'Savings'] as Category[]).map(cat => (
                 <button
                   key={cat}
                   onClick={() => { triggerHaptic(); setBucket(cat); }}
                   className={`py-2.5 rounded-xl text-[9px] font-black uppercase border transition-all ${bucket === cat ? 'bg-brand-accentUi border-brand-accentUi text-brand-bg shadow-lg scale-[1.02]' : 'bg-brand-accent border-brand-border text-slate-500 hover:text-brand-text'}`}
                 >
-                  {cat}
+                  {cat === 'Savings' ? 'Saves' : cat}
                 </button>
               ))}
             </div>
@@ -269,7 +270,7 @@ const SwipeableItem: React.FC<{
   const themeColor = recordType === 'income' ? '#10b981' : (recordType === 'transfer' || recordType === 'bill_payment') ? '#6366f1' : CATEGORY_COLORS[parentCategory as Category] || '#94a3b8';
   
   const isAIUpgraded = item.isAIUpgraded;
-  const isAvoidFlagged = parentCategory === 'Avoids' || activeAiSuggestion?.potentialAvoid;
+  const isAvoidFlagged = item.isAvoid || activeAiSuggestion?.potentialAvoid;
   const isDuplicate = !!activeAiSuggestion?.isDuplicateOf;
   const hasDistinctNote = item.note && item.note !== item.merchant && item.note !== item.subCategory;
   const isCatDiff = activeAiSuggestion && (item.mainCategory !== activeAiSuggestion.mainCategory || item.subCategory !== activeAiSuggestion.subCategory);
@@ -323,7 +324,7 @@ const SwipeableItem: React.FC<{
                 <div className="flex flex-col gap-0.5 mt-1">
                   <div className="flex items-center gap-1.5">
                     <span className={`text-[7px] font-black uppercase px-1.5 py-0.5 rounded truncate max-w-[120px] transition-all border border-brand-border/10 ${isMerchantDiff ? 'ring-1 ring-indigo-500/30 bg-indigo-500/10' : 'bg-brand-accent'} ${isDuplicate ? 'ring-1 ring-rose-500/50 bg-rose-500/10' : ''} ${isAvoidFlagged ? 'text-rose-500' : 'text-slate-500 dark:text-slate-400'}`}>{item.merchant || 'General'}</span>
-                    {!isCompact && <p className={`text-[7px] font-bold text-slate-500 uppercase tracking-widest leading-none`}>{new Date(item.date).toLocaleDateString(undefined, { month: 'short', day: 'numeric' }).toUpperCase()}</p>}
+                    <p className={`text-[7px] font-bold text-slate-500 uppercase tracking-widest leading-none`}>{new Date(item.date).toLocaleDateString(undefined, { month: 'short', day: 'numeric' }).toUpperCase()}</p>
                   </div>
                 </div>
               </div>
@@ -343,6 +344,12 @@ const SwipeableItem: React.FC<{
                    >
                      {item.category}
                    </div>
+                   {item.isAvoid && (
+                    <div className="px-1.5 py-0.5 rounded text-[7px] font-black uppercase tracking-widest bg-rose-500/10 text-rose-500 border border-rose-500/20 flex items-center gap-1 animate-pulse">
+                      <Flame size={8} />
+                      Avoid
+                    </div>
+                   )}
                    {!isSelectionMode && (
                     <button onClick={handleItemAudit} className={`transition-all p-1 rounded-md hover:bg-indigo-500/10 active:scale-90 ${activeAiSuggestion ? 'text-indigo-400 animate-pulse' : 'text-slate-600 opacity-60 hover:opacity-100'}`}>
                       {isAuditing ? <Loader2 size={isCompact ? 10 : 12} className="animate-spin text-indigo-400" /> : <BrainCircuit size={10} />}
@@ -373,7 +380,7 @@ const SwipeableItem: React.FC<{
 };
 
 const Ledger: React.FC<LedgerProps> = ({ 
-  expenses, incomes, wealthItems, bills, settings, rules = [], budgetItems, onDeleteExpense, onDeleteIncome, onConfirm, onUpdateExpense, onBulkUpdateExpense, onBulkDelete, onEditRecord, onAddRecord, onAddIncome, onAddBulk, viewDate, onMonthChange, showToast, onImport, initialFilter
+  expenses, incomes, wealthItems, bills, settings, rules = [], budgetItems, onDeleteExpense, onDeleteIncome, onConfirm, onUpdateExpense, onBulkUpdateExpense, onBulkDelete, onEditRecord, onAddRecord, onAddIncome, onAddBulk, viewDate, onMonthChange, showToast, onImport, onDeduplicate, initialFilter
 }) => {
   const [filterType, setFilterType] = useState<'all' | 'expense' | 'income' | 'transfer' | 'bill_payment'>('all');
   const [categoryFilter, setCategoryFilter] = useState<string | null>(initialFilter || null);
@@ -456,20 +463,31 @@ const Ledger: React.FC<LedgerProps> = ({
         };
       }
       
-      const catKey = e.category as 'Needs' | 'Wants' | 'Savings' | 'Avoids';
-      if (['Needs', 'Wants', 'Savings', 'Avoids'].includes(catKey)) {
-         weeklyMap[dateKey][catKey] += e.amount;
+      if (e.isAvoid) {
+        weeklyMap[dateKey].Avoids += e.amount;
+      }
+      if (['Needs', 'Wants', 'Savings'].includes(e.category)) {
+        weeklyMap[dateKey][e.category as 'Needs' | 'Wants' | 'Savings'] += e.amount;
       }
     });
 
     const weeklyData = Object.values(weeklyMap).sort((a, b) => a.date.getTime() - b.date.getTime());
 
     const catMap: Record<string, number> = { Needs: 0, Wants: 0, Savings: 0, Avoids: 0 };
-    currentMonthExpenses.forEach(e => { if (catMap[e.category] !== undefined) catMap[e.category] += e.amount; });
+    currentMonthExpenses.forEach(e => { 
+      if (e.isAvoid) catMap.Avoids += e.amount;
+      if (catMap[e.category] !== undefined && e.category !== 'Avoids') catMap[e.category] += e.amount; 
+    });
     const pieData = Object.entries(catMap).map(([name, value]) => ({ name, value, color: CATEGORY_COLORS[name as Category] })).filter(d => d.value > 0);
     const comparisonData = (['Needs', 'Wants', 'Savings', 'Avoids'] as const).map(cat => {
-      const current = currentMonthExpenses.filter(e => e.category === cat).reduce((s, e) => s + e.amount, 0);
-      const previous = prevMonthExpenses.filter(e => e.category === cat).reduce((s, e) => s + e.amount, 0);
+      let current, previous;
+      if (cat === 'Avoids') {
+        current = currentMonthExpenses.filter(e => e.isAvoid).reduce((s, e) => s + e.amount, 0);
+        previous = prevMonthExpenses.filter(e => e.isAvoid).reduce((s, e) => s + e.amount, 0);
+      } else {
+        current = currentMonthExpenses.filter(e => e.category === cat).reduce((s, e) => s + e.amount, 0);
+        previous = prevMonthExpenses.filter(e => e.category === cat).reduce((s, e) => s + e.amount, 0);
+      }
       return { name: cat, current: Math.round(current), previous: Math.round(previous), color: CATEGORY_COLORS[cat] };
     });
     const totalOutflow = currentMonthExpenses.reduce((s, e) => s + (e.amount || 0), 0);
@@ -517,8 +535,14 @@ const Ledger: React.FC<LedgerProps> = ({
 
   const handleBatchRefine = async () => {
     triggerHaptic();
-    const candidates = baseRecords.filter(r => r.recordType === 'expense');
-    if (candidates.length === 0) { showToast("No expense records in current month to scan.", "info"); return; }
+    // Filter out expenses that are already categorized by a manual rule
+    const candidates = baseRecords.filter(r => {
+      if (r.recordType !== 'expense') return false;
+      const rule = rules.find(rule => rule.id === r.ruleId);
+      return !rule?.isManual;
+    });
+    
+    if (candidates.length === 0) { showToast("No eligible expense records to scan (Manual rules respected).", "info"); return; }
     setIsRefining(true);
     showToast("Initiating Neural Audit for current month...", "info");
     try {
@@ -630,6 +654,7 @@ const Ledger: React.FC<LedgerProps> = ({
            </button>
            <input type="file" ref={fileInputRef} onChange={handleFileChange} className="hidden" accept=".csv,.txt,text/csv,text/plain" />
            <button onClick={handleApplyRules} title="Run Rule Engine" className="p-2 bg-white/10 rounded-xl text-brand-headerText hover:bg-white/20 transition-all active:scale-95"><Zap size={16} strokeWidth={2.5} /></button>
+           <button onClick={onDeduplicate} title="Clean Duplicates" className="p-2 bg-white/10 rounded-xl text-brand-headerText hover:bg-white/20 transition-all active:scale-95"><Flame size={16} strokeWidth={2.5} /></button>
            <button onClick={handleBatchRefine} disabled={isRefining} className={`p-2 rounded-xl transition-all active:scale-95 ${isShowingAISuggestionsOnly ? 'bg-white/20 text-brand-headerText' : 'bg-white/10 text-brand-headerText'}`}>{isRefining ? <Loader2 size={16} className="animate-spin" /> : <Wand2 size={16} strokeWidth={2.5} />}</button>
            <button onClick={() => { triggerHaptic(); setViewMode(viewMode === 'list' ? 'compare' : 'list'); }} className={`p-2 rounded-xl transition-all active:scale-95 ${viewMode === 'compare' ? 'bg-white/20 text-brand-headerText' : 'bg-white/10 text-brand-headerText'}`}>{viewMode === 'list' ? <BarChart3 size={16} /> : <LayoutList size={16} />}</button>
         </div>
@@ -718,6 +743,24 @@ const Ledger: React.FC<LedgerProps> = ({
                   onToggleSelect={handleToggleSelect}
                 />
               ))}
+
+              {filteredRecords.length > 0 && (
+                <div className="px-6 py-4 bg-brand-accent/20 border-t border-brand-border flex items-center justify-between sticky bottom-0 z-20 backdrop-blur-sm">
+                  <div className="flex flex-col">
+                    <span className="text-[8px] font-black text-slate-500 uppercase tracking-[0.2em]">Registry Total</span>
+                    <span className="text-[7px] font-bold text-slate-400 uppercase tracking-widest mt-0.5">{filteredRecords.length} Records Summed</span>
+                  </div>
+                  <div className="text-right">
+                    <p className="text-[16px] font-black text-brand-text tracking-tighter">
+                      {currencySymbol}{Math.round(filteredRecords.reduce((sum, r) => {
+                        const amt = r.amount || 0;
+                        return r.recordType === 'income' ? sum + amt : sum - amt;
+                      }, 0)).toLocaleString()}
+                    </p>
+                  </div>
+                </div>
+              )}
+
               {filteredRecords.length === 0 && (
                 <div className="py-20 text-center flex flex-col items-center justify-center opacity-30">
                   {isShowingAISuggestionsOnly ? (

@@ -15,36 +15,27 @@ interface AddRuleProps {
 const AddRule: React.FC<AddRuleProps> = ({ settings, onAdd, onUpdate, onDelete, onCancel, initialData }) => {
   const isEditing = !!(initialData && initialData.id);
   const [keyword, setKeyword] = useState(initialData?.keyword || '');
+  const [bucket, setBucket] = useState<Category>(initialData?.category || 'Needs');
   const [mainCategory, setMainCategory] = useState(initialData?.mainCategory || '');
   const [subCategory, setSubCategory] = useState(initialData?.subCategory || 'General');
+  const [applyToAll, setApplyToAll] = useState(false);
 
-  // Unified list of categories from all buckets
-  const allMainCategories = useMemo(() => {
-    const list: { name: string; bucket: Category }[] = [];
-    if (!settings.customCategories) return list;
-    Object.entries(settings.customCategories).forEach(([bucket, cats]) => {
-      Object.keys(cats).forEach(catName => {
-        list.push({ name: catName, bucket: bucket as Category });
-      });
-    });
-    return list.sort((a, b) => a.name.localeCompare(b.name));
-  }, [settings.customCategories]);
-
-  // Determine current bucket based on selected main category
-  const selectedBucket = useMemo(() => {
-    return allMainCategories.find(c => c.name === mainCategory)?.bucket || 'Needs';
-  }, [mainCategory, allMainCategories]);
+  // Filter main categories based on selected bucket
+  const mainCategoriesInBucket = useMemo(() => {
+    if (!settings.customCategories) return [];
+    return Object.keys(settings.customCategories[bucket] || {}).sort();
+  }, [settings.customCategories, bucket]);
 
   const subCategoriesInCat = useMemo(() => {
     if (!settings.customCategories) return ['General'];
-    return settings.customCategories[selectedBucket]?.[mainCategory] || ['General'];
-  }, [selectedBucket, mainCategory, settings.customCategories]);
+    return settings.customCategories[bucket]?.[mainCategory] || ['General'];
+  }, [bucket, mainCategory, settings.customCategories]);
 
   useEffect(() => {
-    if (!mainCategory && allMainCategories.length > 0) {
-      setMainCategory(allMainCategories[0].name);
+    if (!mainCategory || !mainCategoriesInBucket.includes(mainCategory)) {
+      setMainCategory(mainCategoriesInBucket[0] || '');
     }
-  }, [allMainCategories, mainCategory]);
+  }, [mainCategoriesInBucket, mainCategory]);
 
   useEffect(() => {
     if (!subCategory || !subCategoriesInCat.includes(subCategory)) {
@@ -57,12 +48,19 @@ const AddRule: React.FC<AddRuleProps> = ({ settings, onAdd, onUpdate, onDelete, 
     triggerHaptic(20);
     const payload = { 
       keyword: keyword.trim(), 
-      category: selectedBucket, 
+      category: bucket, 
       mainCategory, 
-      subCategory 
+      subCategory,
+      isManual: true
     };
-    if (isEditing && onUpdate && initialData) onUpdate(initialData.id, payload);
-    else onAdd(payload);
+    
+    // We pass applyToAll as metadata if needed, but the onAdd/onUpdate usually just take the rule.
+    // I'll adjust the props to handle applyToAll.
+    if (isEditing && onUpdate && initialData) {
+      onUpdate(initialData.id, { ...payload, applyToAll } as any);
+    } else {
+      onAdd({ ...payload, applyToAll } as any);
+    }
     onCancel();
   };
 
@@ -102,12 +100,31 @@ const AddRule: React.FC<AddRuleProps> = ({ settings, onAdd, onUpdate, onDelete, 
           </div>
 
           <div className="space-y-3 pt-2">
+            <div className="space-y-0.5">
+              <span className={labelClass}>Bucket</span>
+              <div className="grid grid-cols-3 gap-1.5">
+                {(['Needs', 'Wants', 'Savings'] as Category[]).map(b => (
+                  <button
+                    key={b}
+                    onClick={() => { triggerHaptic(); setBucket(b); }}
+                    className={`py-2 rounded-xl text-[8px] font-black uppercase tracking-tighter border transition-all ${
+                      bucket === b 
+                        ? 'bg-brand-primary text-white border-brand-primary shadow-md' 
+                        : 'bg-brand-accent text-slate-500 border-brand-border opacity-60'
+                    }`}
+                  >
+                    {b === 'Savings' ? 'Saves' : b}
+                  </button>
+                ))}
+              </div>
+            </div>
+
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-0.5">
                 <span className={labelClass}>Category</span>
                 <div className="relative">
                   <select value={mainCategory} onChange={(e) => setMainCategory(e.target.value)} className={selectClasses}>
-                    {allMainCategories.map(cat => <option key={cat.name} value={cat.name}>{cat.name}</option>)}
+                    {mainCategoriesInBucket.map(cat => <option key={cat} value={cat}>{cat}</option>)}
                   </select>
                   <ChevronDown size={10} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
                 </div>
@@ -123,6 +140,18 @@ const AddRule: React.FC<AddRuleProps> = ({ settings, onAdd, onUpdate, onDelete, 
                   <ChevronDown size={10} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
                 </div>
               </div>
+            </div>
+
+            <div className="pt-2">
+              <button 
+                onClick={() => { triggerHaptic(); setApplyToAll(!applyToAll); }}
+                className="flex items-center gap-2 group"
+              >
+                <div className={`w-4 h-4 rounded border flex items-center justify-center transition-all ${applyToAll ? 'bg-brand-primary border-brand-primary text-white' : 'bg-brand-accent border-brand-border'}`}>
+                  {applyToAll && <Check size={10} strokeWidth={4} />}
+                </div>
+                <span className="text-[8px] font-black text-slate-500 uppercase tracking-widest group-hover:text-brand-text transition-colors">Apply to all existing records</span>
+              </button>
             </div>
           </div>
         </div>

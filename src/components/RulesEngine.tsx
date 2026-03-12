@@ -43,8 +43,15 @@ const RulesEngine: React.FC<RulesEngineProps> = ({ rules, onAddRule, onEditRule,
                     <Zap size={14} />
                   </div>
                   <div>
-                    <h4 className="font-black text-brand-text text-xs uppercase tracking-tight">{rule.keyword}</h4>
-                    <p className="text-[7px] font-black text-slate-500 uppercase tracking-widest mt-0.5">{rule.mainCategory} • {rule.subCategory}</p>
+                    <div className="flex items-center gap-1.5">
+                      <h4 className="font-black text-brand-text text-xs uppercase tracking-tight">{rule.keyword}</h4>
+                      {rule.isManual && (
+                        <span className="text-[6px] font-black bg-brand-primary/10 text-brand-primary px-1.5 py-0.5 rounded-full uppercase tracking-widest border border-brand-primary/20">Manual</span>
+                      )}
+                    </div>
+                    <p className="text-[7px] font-black text-slate-500 uppercase tracking-widest mt-0.5">
+                      <span className="text-brand-primary">{rule.category === 'Savings' ? 'Saves' : rule.category}</span> • {rule.mainCategory} • {rule.subCategory}
+                    </p>
                   </div>
                 </div>
                 <div className="flex items-center gap-1">

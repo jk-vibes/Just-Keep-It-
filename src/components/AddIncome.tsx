@@ -104,9 +104,8 @@ const AddIncome: React.FC<AddIncomeProps> = ({ settings, wealthItems, onAdd, onU
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>(initialData?.paymentMethod || 'Net Banking');
   const [isAiProcessing, setIsAiProcessing] = useState(false);
 
-  const defaultIncomeTypes = ['Salary', 'Freelance', 'Investment', 'Gift', 'Other'];
-  
   const allIncomeTypes = useMemo(() => {
+    const defaultIncomeTypes = ['Salary', 'Freelance', 'Investment', 'Gift', 'Other'];
     const customInflows = settings.customCategories?.Uncategorized?.Inflow || [];
     return Array.from(new Set([...defaultIncomeTypes, ...customInflows])).sort();
   }, [settings.customCategories]);

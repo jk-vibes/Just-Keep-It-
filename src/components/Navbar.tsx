@@ -48,7 +48,7 @@ const Navbar: React.FC<NavbarProps> = ({
   const ActionBadge = () => (
     <button 
       onClick={handleAddClick}
-      className="absolute -top-1 -right-1 bg-brand-accentUi text-brand-bg w-8 h-8 rounded-full flex items-center justify-center shadow-[0_4px_12px_rgba(0,0,0,0.3)] border-2 border-brand-surface transition-all z-30 active:scale-75 pointer-events-auto"
+      className="absolute -top-1 -right-1 bg-rose-500 text-white w-8 h-8 rounded-full flex items-center justify-center shadow-[0_4px_12px_rgba(0,0,0,0.3)] border-2 border-brand-surface transition-all z-30 active:scale-75 pointer-events-auto"
     >
       <Plus size={20} strokeWidth={4} />
     </button>

@@ -45,6 +45,14 @@ const Settings: React.FC<SettingsProps> = ({
   const [localWants, setLocalWants] = useState(settings.split.Wants.toString());
   const [localSavings, setLocalSavings] = useState(settings.split.Savings.toString());
 
+  // Sync local state with settings props (e.g. after restore or mock load)
+  useEffect(() => {
+    setLocalIncome(settings.monthlyIncome.toString());
+    setLocalNeeds(settings.split.Needs.toString());
+    setLocalWants(settings.split.Wants.toString());
+    setLocalSavings(settings.split.Savings.toString());
+  }, [settings.monthlyIncome, settings.split]);
+
   const jsonInputRef = useRef<HTMLInputElement>(null);
 
   // Real-time update handlers
@@ -134,7 +142,12 @@ const Settings: React.FC<SettingsProps> = ({
 
         <section className={sectionClass}>
           <div className="p-4 space-y-5">
-            <h3 className={labelClass}><TrendingUp size={12} /> Budget Settings</h3>
+            <div className="flex items-center justify-between">
+              <h3 className={labelClass}><TrendingUp size={12} /> Budget Settings</h3>
+              <span className="text-[6px] font-black text-emerald-500 uppercase tracking-widest flex items-center gap-1 animate-pulse">
+                <Sparkles size={8} /> Autosaved
+              </span>
+            </div>
             <div className="space-y-2">
                <p className="text-[9px] font-black text-slate-500 uppercase tracking-widest ml-1">Baseline Income</p>
                <div className="relative">

@@ -16,6 +16,7 @@ interface CategoryStatCardProps {
   label: string;
   percentage: number;
   spent: number;
+  planned: number;
   color: string;
   icon: any;
   currencySymbol: string;
@@ -28,6 +29,7 @@ const CategoryStatCard: React.FC<CategoryStatCardProps> = ({
   label, 
   percentage, 
   spent, 
+  planned,
   color, 
   icon: Icon,
   currencySymbol,
@@ -53,13 +55,16 @@ const CategoryStatCard: React.FC<CategoryStatCardProps> = ({
       </div>
       <div className="flex flex-col">
         <span className={`${isCompact ? 'text-xs' : 'text-sm'} font-black text-brand-text truncate`}>
-          {currencySymbol}{Math.round(spent).toLocaleString()}
+          {currencySymbol}{Math.round(label === 'AVOIDS' ? spent : planned).toLocaleString()}
         </span>
-        <div className="flex items-center gap-1 mt-0.5">
-          <div className="flex-1 h-0.5 bg-slate-200 dark:bg-slate-800 rounded-full overflow-hidden">
-            <div className="h-full rounded-full transition-all duration-1000" style={{ width: `${Math.min(100, percentage)}%`, backgroundColor: color }} />
-          </div>
+        <div className="flex items-center justify-between mt-0.5">
+          <span className="text-[6px] font-bold text-slate-500 uppercase tracking-tighter">
+            {label === 'AVOIDS' ? 'Excess Spend' : `Spent: ${currencySymbol}${Math.round(spent).toLocaleString()}`}
+          </span>
           <span className="text-[6px] font-black text-slate-400">{Math.round(percentage)}%</span>
+        </div>
+        <div className="w-full h-0.5 bg-slate-200 dark:bg-slate-800 rounded-full overflow-hidden mt-0.5">
+          <div className="h-full rounded-full transition-all duration-1000" style={{ width: `${Math.min(100, percentage)}%`, backgroundColor: color }} />
         </div>
       </div>
     </button>
@@ -114,8 +119,18 @@ const BudgetPlanner: React.FC<BudgetPlannerProps> = ({
     });
 
     const stats = buckets.map(cat => {
-      const spent = currentExps.filter(e => e.category === cat).reduce((sum, e) => sum + e.amount, 0);
-      const planned = budgetItems.filter(b => b.bucket === cat).reduce((sum, b) => sum + b.amount, 0);
+      let spent;
+      if (cat === 'Avoids') {
+        spent = currentExps.filter(e => e.isAvoid).reduce((sum, e) => sum + e.amount, 0);
+      } else {
+        spent = currentExps.filter(e => e.category === cat).reduce((sum, e) => sum + e.amount, 0);
+      }
+      
+      const splitPercentage = settings.split[cat as keyof typeof settings.split] || 0;
+      const planned = cat === 'Avoids' 
+        ? 0
+        : (settings.monthlyIncome * splitPercentage) / 100;
+
       return {
         name: cat,
         spent,
@@ -129,7 +144,7 @@ const BudgetPlanner: React.FC<BudgetPlannerProps> = ({
     const uncategorizedCount = currentExps.filter(e => e.category === 'Uncategorized' || !e.category).length;
     
     return { stats, uncategorizedCount };
-  }, [expenses, budgetItems, m, y]);
+  }, [expenses, m, y, settings]);
 
   const filteredBudgetItems = useMemo(() => {
     // Milestones are now independent of the active bucket selection for utilization
@@ -211,6 +226,7 @@ const BudgetPlanner: React.FC<BudgetPlannerProps> = ({
                  key={stat.name}
                  label={stat.name}
                  spent={stat.spent}
+                 planned={stat.planned}
                  percentage={stat.percentage}
                  color={stat.color}
                  icon={stat.icon}

@@ -84,16 +84,19 @@ export async function refineBatchTransactions(transactions: Array<{ id: string, 
     - 'note': Generate a concise, descriptive note (max 10 words) that explains what the transaction likely was based on the merchant and category.
     
     TAXONOMY RULES (MANDATORY):
-    1. 'category' (BUCKET): MUST be exactly one of: [Needs, Wants, Savings, Avoids].
+    1. 'category' (BUCKET): MUST be exactly one of: [Needs, Wants, Savings].
     
-    DADDY MIND CATEGORIZATION LOGIC:
-    - 'Needs': Essential survival (Rent, basic groceries, utilities, health). Be strict.
-    - 'Wants': Quality of life but not essential (Dining out, entertainment, hobbies).
-    - 'Savings': Investments, debt repayment, or actual savings transfers.
-    - 'Avoids': THIS IS YOUR PRIMARY TARGET. Flag transactions that are wasteful, impulsive, redundant, or overpriced.
-      - Examples: Late fees, convenience fees, excessive dining (if repeated), impulse shopping, unused subscriptions, or any transaction that feels like "burning money".
-      - IMPORTANT: If a transaction exceeds the remaining budget for its category (see Budget Context), it MUST be flagged as 'Avoids'.
-      - If a transaction is flagged as 'Avoids', 'isAvoidSuggestion' MUST be true.
+    DADDY MIND CATEGORIZATION LOGIC (STRICT):
+    - 'Needs': ABSOLUTELY ESSENTIAL for survival and basic functioning.
+      - Examples: Rent/Mortgage, Basic Groceries (not snacks/luxury), Utilities (Electricity, Water, Internet), Insurance, Essential Healthcare, Minimum Debt Payments, Commute to work.
+    - 'Wants': Quality of life, comfort, and entertainment. Non-essential.
+      - Examples: Dining out, Coffee shops, Streaming services (Netflix, etc.), Hobbies, Shopping for non-essential clothes, Gadgets, Travel/Vacations, Gym (unless essential for health).
+    - 'Savings': Building future wealth and security.
+      - Examples: SIPs, Mutual Funds, Stocks, Gold, EPF/PPF, Emergency Fund transfers, Extra Debt Repayment (beyond minimum).
+    
+    AVOID LOGIC:
+    - If a transaction is wasteful, impulsive, or overpriced, set 'isAvoidSuggestion' to true.
+    - Examples: Late fees, Convenience fees, Impulse buys, Unused subscriptions, Excessive alcohol, Over-budget spending.
     
     2. 'mainCategory' (PRIMARY CATEGORY): Group by industry (e.g., Housing, Household, Logistics, Lifestyle, Leisure, Personal, Investment, Reserve, Waste, Impulse).
     3. 'subCategory' (SUB NODE): Specific item (e.g., Rent, Groceries, Fuel, Dining, Shopping, SIP, Subscriptions).
@@ -161,13 +164,12 @@ export async function auditTransaction(expense: Expense, currency: string, budge
     
     ${budgetContext ? `BUDGET CONTEXT: ${budgetContext}` : ''}
     
-    DADDY MIND RULES:
-    1. suggestedCategory: MUST be [Needs, Wants, Savings, Avoids].
-    2. Flag as 'Avoids' if the transaction is wasteful, impulsive, unnecessary, or exceeds the remaining budget for its category.
-    3. suggestedMainCategory: Industry group (e.g., Housing, Lifestyle, Waste, Impulse).
-    4. suggestedSubCategory: Specific item (e.g., Rent, Dining, Late Fee).
-    5. merchant: Clean, professional name.
-    6. insight: A short (max 15 words) "Daddy Mind" comment on why this is categorized this way.
+    DADDY MIND RULES (STRICT):
+    1. suggestedCategory: MUST be [Needs, Wants, Savings].
+    2. Flag 'potentialAvoid' as true if the transaction is wasteful, impulsive, unnecessary, or exceeds the remaining budget for its category.
+    3. 'Needs': Survival (Rent, Utilities, Basic Food, Health, Essential Commute).
+    4. 'Wants': Lifestyle (Dining, Entertainment, Hobbies, Non-essential shopping).
+    5. 'Savings': Wealth (Investments, SIPs, Gold, Extra Debt Paydown).
     
     Clean the merchant name and DO NOT use "General" or "Other".
     
@@ -242,8 +244,12 @@ export async function parseTransactionText(text: string, currency: string): Prom
     Required: Bucket (Needs/Wants/Savings/Avoids), Primary Category, Sub Node. 
     Clean merchant. NO "General" descriptors.
     
-    DADDY MIND LOGIC:
-    - Flag wasteful/impulsive spending as 'Avoids'.
+    DADDY MIND LOGIC (STRICT):
+    - 'Needs': Survival (Rent, Utilities, Basic Food, Health, Essential Commute).
+    - 'Wants': Lifestyle (Dining, Entertainment, Hobbies, Non-essential shopping).
+    - 'Savings': Wealth (Investments, SIPs, Gold, Extra Debt Paydown).
+    - Set 'category' to one of the above.
+    - If wasteful/impulsive, flag as 'Avoids' by setting a flag if possible (or I will infer it).
     
     Return JSON.
   `;
@@ -436,4 +442,94 @@ export async function getDecisionAdvice(
       }
     }));
     return JSON.parse(response.text || '{}');
+}
+
+export async function analyzeBankStatement(fileData: string, mimeType: string, currency: string): Promise<{ transactions: any[], hiddenCharges: any[], summary: string }> {
+  const prompt = `
+    Role: Senior Financial Forensic Auditor.
+    Currency: ${currency}.
+    
+    Analyze the attached bank statement.
+    
+    Tasks:
+    1. Extract all transactions with precision.
+    2. Identify "Hidden Charges" or "Wasteful Fees" (e.g., convenience fees, service charges, penalties, low-balance fees, hidden interest, redundant subscriptions, small recurring charges that add up).
+    3. Categorize each transaction into [Needs, Wants, Savings, Avoids].
+    
+    DADDY MIND LOGIC:
+    - Anything that isn't essential or wealth-building should be scrutinized.
+    - Flag any suspicious or hidden fees as 'isHiddenCharge' and 'category: Avoids'.
+    
+    Return JSON with:
+    - transactions: Array of { date, merchant, amount, category, mainCategory, subCategory, note, isHiddenCharge }
+    - hiddenCharges: Array of { merchant, amount, reasoning }
+    - summary: A brief auditor's summary of the statement health and specific red flags found.
+  `;
+
+  try {
+    const response = await withRetry<GenerateContentResponse>(() => ai.models.generateContent({
+      model: 'gemini-3-flash-preview',
+      contents: [{ 
+        parts: [
+          { text: prompt },
+          { inlineData: { data: fileData, mimeType } }
+        ] 
+      }],
+      config: {
+        responseMimeType: "application/json",
+        responseSchema: {
+          type: Type.OBJECT,
+          properties: {
+            transactions: {
+              type: Type.ARRAY,
+              items: {
+                type: Type.OBJECT,
+                properties: {
+                  date: { type: Type.STRING },
+                  merchant: { type: Type.STRING },
+                  amount: { type: Type.NUMBER },
+                  category: { type: Type.STRING },
+                  mainCategory: { type: Type.STRING },
+                  subCategory: { type: Type.STRING },
+                  note: { type: Type.STRING },
+                  isHiddenCharge: { type: Type.BOOLEAN }
+                },
+                required: ["date", "merchant", "amount", "category", "mainCategory", "subCategory", "note"]
+              }
+            },
+            hiddenCharges: {
+              type: Type.ARRAY,
+              items: {
+                type: Type.OBJECT,
+                properties: {
+                  merchant: { type: Type.STRING },
+                  amount: { type: Type.NUMBER },
+                  reasoning: { type: Type.STRING }
+                },
+                required: ["merchant", "amount", "reasoning"]
+              }
+            },
+            summary: { type: Type.STRING }
+          },
+          required: ["transactions", "hiddenCharges", "summary"]
+        }
+      }
+    }));
+    
+    const result = JSON.parse(response.text || '{}');
+    // Sanitize categories
+    if (result.transactions) {
+      result.transactions = result.transactions.map((t: any) => {
+        if (t.category === 'Saves') t.category = 'Savings';
+        if (!['Needs', 'Wants', 'Savings', 'Avoids', 'Uncategorized'].includes(t.category)) {
+          t.category = 'Uncategorized';
+        }
+        return t;
+      });
+    }
+    return result;
+  } catch (error) {
+    console.error("Statement analysis failure:", error);
+    throw error;
+  }
 }

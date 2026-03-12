@@ -65,7 +65,7 @@ const AddRecord: React.FC<AddRecordProps> = ({
   const currencySymbol = getCurrencySymbol(settings.currency);
   const liquidAccounts = wealthItems.filter(i => ['Savings', 'Cash', 'Credit Card', 'Personal Loan', 'Home Loan'].includes(i.category));
 
-  const categoryTree = settings.customCategories || {} as any;
+  const categoryTree = useMemo(() => settings.customCategories || {} as any, [settings.customCategories]);
   const categoriesInBucket = useMemo(() => Object.keys(categoryTree[bucket] || {}), [bucket, categoryTree]);
   const subCategoriesInCat = useMemo(() => categoryTree[bucket]?.[mainCategory] || ['General'], [bucket, mainCategory, categoryTree]);
 
