@@ -14,6 +14,17 @@ interface LogEntry {
 
 const VERSION_HISTORY: LogEntry[] = [
   {
+    version: '2.0',
+    date: 'MAR 14, 2026',
+    changes: [
+      '⭐ Chronological Budgeting: Refined "Avoid" tagging logic to use running totals ordered by date. Only specific transactions that trigger overspending are flagged, keeping your within-budget history clean.',
+      '⭐ Registry Totals: Added a dynamic, filter-aware total summary at the bottom of the Ledger for instant visibility of your net balance.',
+      '⭐ Global Date Visibility: Enabled transaction dates for all ledger entries across all view densities for improved scannability.',
+      '⭐ UI Polish: Enhanced Dashboard layout with optimized widget spacing and a cleaner, borderless header interface.',
+      'System Calibration: Synchronized budget limits and category goals with the new chronological spending engine.'
+    ]
+  },
+  {
     version: '.1.3.1',
     date: 'FEB 22, 2026',
     changes: [
@@ -102,7 +113,7 @@ const VersionLog: React.FC<VersionLogProps> = ({ onClose }) => {
 
               <div className="space-y-3">
                 <div className="flex items-baseline gap-2">
-                  <h4 className="text-sm font-black text-slate-900 dark:text-white uppercase tracking-tighter">
+                  <h4 className="text-sm font-black text-slate-900 dark:text-white tracking-tighter">
                     {entry.version.startsWith('v') ? entry.version : `v${entry.version}`}
                   </h4>
                   <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">{entry.date}</span>

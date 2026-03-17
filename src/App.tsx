@@ -33,7 +33,7 @@ import { generate12MonthData } from './utils/mockData';
 import { getFatherlyAdvice, batchProcessNewTransactions } from './services/geminiService';
 
 const STORAGE_KEY = 'jk_budget_data_whole_num_v12';
-const APP_VERSION = 'v.1.3.1';
+const APP_VERSION = 'v2.0';
 
 const INITIAL_SETTINGS: UserSettings = {
   monthlyIncome: 350000,
@@ -819,7 +819,7 @@ const App: React.FC = () => {
                  </span>
                  <button 
                    onClick={() => { triggerHaptic(); setIsShowingVersionLog(true); }} 
-                   className="text-[7px] font-black text-brand-accentUi uppercase tracking-widest hover:underline active:scale-95 transition-all mt-0.5"
+                   className="text-[7px] font-black text-brand-accentUi tracking-widest hover:underline active:scale-95 transition-all mt-0.5"
                  >
                    {APP_VERSION}
                  </button>

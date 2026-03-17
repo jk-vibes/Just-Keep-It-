@@ -1,7 +1,8 @@
 import { GoogleGenAI, Type, GenerateContentResponse } from "@google/genai";
 import { Expense, UserSettings, Category, WealthItem, BudgetItem, Bill } from "../types";
 
-const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+const apiKey = process.env.API_KEY || process.env.GEMINI_API_KEY;
+const ai = apiKey ? new GoogleGenAI({ apiKey }) : null;
 
 let isProcessing = false;
 const queue: (() => Promise<void>)[] = [];
@@ -72,6 +73,7 @@ async function withRetry<T>(fn: () => Promise<T>, retries = 3, delay = 15000): P
 }
 
 export async function refineBatchTransactions(transactions: Array<{ id: string, amount: number, merchant: string, note: string, date: string }>, budgetContext?: string): Promise<Array<{ id: string, merchant: string, category: Category, mainCategory: string, subCategory: string, note: string, isAvoidSuggestion: boolean, isDuplicateOf?: string }>> {
+  if (!ai) return [];
   const prompt = `
     Role: You are a strict, frugal, and highly critical "Daddy Mind" financial auditor. Your goal is to eliminate waste and maximize savings.
     
@@ -154,6 +156,7 @@ export async function refineBatchTransactions(transactions: Array<{ id: string, 
 }
 
 export async function auditTransaction(expense: Expense, currency: string, budgetContext?: string) {
+  if (!ai) return null;
   const prompt = `
     Role: Strict "Daddy Mind" financial auditor.
     Audit this transaction:
@@ -211,6 +214,7 @@ export async function getFatherlyAdvice(
   wealthItems: WealthItem[],
   settings: UserSettings
 ): Promise<string> {
+  if (!ai) return "Wealth isn't about what you spend, it's about what you keep.";
   const assets = wealthItems.filter(i => i.type === 'Investment').reduce((sum, i) => sum + i.value, 0);
   const liabilities = wealthItems.filter(i => i.type === 'Liability').reduce((sum, i) => sum + i.value, 0);
   const m = new Date().getMonth();
@@ -237,6 +241,7 @@ export async function getFatherlyAdvice(
 }
 
 export async function parseTransactionText(text: string, currency: string): Promise<{ entryType: 'Expense' | 'Income', amount: number, merchant: string, category: Category, mainCategory: string, subCategory: string, date: string, incomeType?: string, accountName?: string } | null> {
+  if (!ai) return null;
   const prompt = `
     Role: Strict "Daddy Mind" financial auditor.
     Extract from: "${text}".
@@ -298,6 +303,8 @@ export async function parseTransactionText(text: string, currency: string): Prom
 }
 
 export async function generateQuickNote(merchant: string, mainCategory: string, subCategory: string): Promise<string> {
+  if (!ai) return `${merchant}: ${subCategory}`;
+
   const prompt = `Short professional description for ${merchant}: ${mainCategory} (${subCategory}). Max 8 words. String only.`;
   try {
     const response = await withRetry<GenerateContentResponse>(() => ai.models.generateContent({
@@ -311,6 +318,7 @@ export async function generateQuickNote(merchant: string, mainCategory: string, 
 }
 
 export async function parseBulkTransactions(text: string, currency: string): Promise<any[]> {
+  if (!ai) return [];
   const prompt = `
     Role: Strict "Daddy Mind" financial auditor.
     Analyze logs, extract transactions. Currency ${currency}. 
@@ -362,6 +370,7 @@ export async function batchProcessNewTransactions(
   items: Array<{ merchant: string, amount: number, date: string, note?: string }>,
   budgetContext?: string
 ): Promise<Array<{ merchant: string, category: Category, mainCategory: string, subCategory: string, intelligentNote: string, isAvoidSuggestion?: boolean }>> {
+  if (!ai) return [];
   const prompt = `
     Role: Strict "Daddy Mind" financial auditor.
     Process ${items.length} transactions. 
@@ -413,6 +422,7 @@ export async function getDecisionAdvice(
   settings: UserSettings,
   query: string
 ): Promise<{ status: 'Safe' | 'Caution' | 'Danger', score: number, reasoning: string, actionPlan: string[], waitTime: string, impactPercentage: number }> {
+  if (!ai) return { status: 'Caution', score: 50, reasoning: "AI service not available.", actionPlan: [], waitTime: "N/A", impactPercentage: 0 };
   const assets = wealthItems.filter(i => i.type === 'Investment').reduce((sum, i) => sum + i.value, 0);
   const liabilities = wealthItems.filter(i => i.type === 'Liability').reduce((sum, i) => sum + i.value, 0);
   const netWorth = assets - liabilities;
@@ -445,6 +455,7 @@ export async function getDecisionAdvice(
 }
 
 export async function analyzeBankStatement(fileData: string, mimeType: string, currency: string): Promise<{ transactions: any[], hiddenCharges: any[], summary: string }> {
+  if (!ai) throw new Error("AI service not initialized. Missing API Key.");
   const prompt = `
     Role: Senior Financial Forensic Auditor.
     Currency: ${currency}.
